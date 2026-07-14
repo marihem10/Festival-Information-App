@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>釜山フェスティバルナビ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav id="sidebar">
+        <h2 class="logo">Busan Navi</h2>
+        <ul class="menu">
+            <li class="active" data-target="view-home">🏠 ホーム</li>
+            <li data-target="view-calendar">📅 カレンダー</li>
+            <li data-target="view-search">🔍 探す</li>
+        </ul>
+    </nav>
+
+    <main id="content">
+        <div id="view-home" class="view-section active">
+            <header>
+                <h1>釜山フェスティバル</h1>
+            </header>
+            <div id="festival-grid"></div>
+        </div>
+
+        <div id="view-calendar" class="view-section" style="display: none;">
+            <header>
+                <h1>フェスティバルカレンダー</h1>
+            </header>
+            
+            <div class="calendar-header">
+                <button id="btn-prev-month">&lt;</button>
+                <h2 id="calendar-month-year" style="margin:0; font-size:20px;">2026年 7月</h2>
+                <button id="btn-next-month">&gt;</button>
+            </div>
+            
+            <div class="calendar-grid" id="calendar-days-header">
+                <div class="calendar-day-name" style="color:#e74c3c;">日</div>
+                <div class="calendar-day-name">月</div>
+                <div class="calendar-day-name">火</div>
+                <div class="calendar-day-name">水</div>
+                <div class="calendar-day-name">木</div>
+                <div class="calendar-day-name">金</div>
+                <div class="calendar-day-name" style="color:#3BA4E6;">土</div>
+            </div>
+            
+            <div class="calendar-grid" id="calendar-body">
+                </div>
+        </div>
+
+        <div id="view-search" class="view-section" style="display: none;">
+            <header><h1>探す</h1></header>
+            <p>準備中です。</p>
+        </div>
+    </main>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
