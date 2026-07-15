@@ -83,6 +83,13 @@ body {
     overflow: hidden;
 }
 
+#view-bookmarks.view-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
 header h1 {
     font-size: 32px;
     font-weight: 700;
@@ -467,4 +474,153 @@ header h1 {
 }
 #festival-search-input::placeholder {
     color: var(--text-muted);
+}
+
+/* --- 🏷️ タグフィルター --- */
+.tag-filter-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.tag-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.tag-chip:hover {
+    background: rgba(255, 255, 255, 0.8);
+}
+.tag-chip.active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+/* --- ⭐ ブックマーク --- */
+.bookmark-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(6px);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    color: #b0b0b5;
+    padding: 0;
+}
+.bookmark-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+}
+.bookmark-btn.active {
+    color: #FFB300;
+}
+.bookmark-btn svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+}
+.bookmark-btn.active svg {
+    fill: currentColor;
+}
+
+.detail-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.8);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+.detail-bookmark-btn.active {
+    color: #FFB300;
+    background: rgba(255, 179, 0, 0.1);
+    border-color: rgba(255, 179, 0, 0.4);
+}
+.detail-bookmark-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+}
+.detail-bookmark-btn.active svg {
+    fill: currentColor;
+}
+
+#bookmark-grid-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* --- 📅 カレンダーのイベントマーカー --- */
+.calendar-cell {
+    position: relative;
+    cursor: default;
+}
+.calendar-cell.has-event {
+    cursor: pointer;
+}
+.calendar-cell.has-event:hover {
+    background: rgba(255, 255, 255, 0.7);
+}
+.event-dots {
+    display: flex;
+    gap: 3px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+.event-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-blue);
+}
+.event-dot.bookmarked {
+    background: #FFB300;
+}
+
+#calendar-day-detail {
+    margin-top: 16px;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+}
+#calendar-day-detail:empty {
+    display: none;
+}
+.day-detail-item {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    cursor: pointer;
+}
+.day-detail-item:last-child {
+    border-bottom: none;
+}
+.day-detail-item:hover {
+    color: var(--primary-blue);
 }

@@ -53,7 +53,7 @@ function createWindow() {
   win.loadFile('index.html');
 
   // 🔧 디버깅 편의를 위해 개발자도구를 자동으로 엽니다.
-  win.webContents.openDevTools();
+  //win.webContents.openDevTools();
 }
 
 // --- ① 한국관광콘텐츠랩(api.visitkorea.or.kr) 내부 통합검색 API ---
@@ -222,6 +222,40 @@ async function enrichWithDates(items, concurrency = 15) {
   return { items: results, debug: debugMsg, sampleRaw: sampleRaw ? sampleRaw.slice(0, 300) : '' };
 }
 
+
+// --- ⭐ 북마크 저장 (앱 재시작해도 유지되도록 파일로 저장) ---
+function getBookmarksPath() {
+  return path.join(app.getPath('userData'), 'bookmarks.json');
+}
+function readBookmarks() {
+  try {
+    const raw = fs.readFileSync(getBookmarksPath(), 'utf-8');
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+function writeBookmarks(list) {
+  try {
+    fs.writeFileSync(getBookmarksPath(), JSON.stringify(list));
+  } catch (e) {
+    // 저장 실패해도 앱 동작엔 지장 없음
+  }
+}
+
+ipcMain.handle('get-bookmarks', () => readBookmarks());
+
+ipcMain.handle('toggle-bookmark', (event, key) => {
+  const list = readBookmarks();
+  const idx = list.indexOf(key);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    list.push(key);
+  }
+  writeBookmarks(list);
+  return list;
+});
 
 // --- hub API(목록+이미지) + detailIntro2(공식, 날짜) 조합만 사용 ---
 ipcMain.handle('fetch-all-festivals', async () => {

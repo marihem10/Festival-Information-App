@@ -17,7 +17,9 @@ tabs.forEach(tab => {
     tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        showView(tab.getAttribute('data-target'));
+        const target = tab.getAttribute('data-target');
+        showView(target);
+        if (target === 'view-bookmarks') renderBookmarkPage();
     });
 });
 
@@ -95,6 +97,7 @@ function normalizeSimpleItem(item) {
 const ICON_CALENDAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>';
 const ICON_PIN = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><path d="M12 21s7-6.5 7-11.5A7 7 0 0 0 5 9.5C5 14.5 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/></svg>';
 const ICON_DOT = '<svg viewBox="0 0 8 8" width="8" height="8" fill="currentColor" style="margin-top:6px; flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>';
+const ICON_BOOKMARK = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
 
 function looseKey(s) {
     return (s || '').replace(/\s|\(|\)|[0-9]/g, '').toLowerCase();
@@ -116,18 +119,79 @@ function getStatus(fest) {
     return { key: 'ended', label: '終了' };
 }
 
+// --- ⭐ 북마크 ---
+let bookmarkedKeys = new Set();
+
+async function loadBookmarks() {
+    try {
+        const list = await window.api.getBookmarks();
+        bookmarkedKeys = new Set(list);
+    } catch (e) {
+        bookmarkedKeys = new Set();
+    }
+}
+
+async function toggleBookmark(key) {
+    try {
+        const list = await window.api.toggleBookmark(key);
+        bookmarkedKeys = new Set(list);
+    } catch (e) {
+        if (bookmarkedKeys.has(key)) bookmarkedKeys.delete(key);
+        else bookmarkedKeys.add(key);
+    }
+    refreshAfterBookmarkChange();
+}
+
+function refreshAfterBookmarkChange() {
+    if (document.getElementById('view-home').style.display !== 'none') renderPage();
+    if (document.getElementById('view-bookmarks').style.display !== 'none') renderBookmarkPage();
+
+    const btn = document.getElementById('detail-bookmark-btn');
+    if (btn) {
+        const key = btn.getAttribute('data-key');
+        const isBm = bookmarkedKeys.has(key);
+        btn.classList.toggle('active', isBm);
+        const label = btn.querySelector('.bm-label');
+        if (label) label.textContent = isBm ? 'ブックマーク済み' : 'ブックマークする';
+    }
+    renderCalendar();
+}
+
+// --- 🏷️ 태그 필터 ---
+function renderTagFilterChips(containerId, sourceList, activeFilter, onSelect) {
+    const container = document.getElementById(containerId);
+    const categories = [...new Set(sourceList.map(f => f.category).filter(Boolean))];
+    if (categories.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    const chips = [{ label: 'すべて', val: '' }, ...categories.map(c => ({ label: c, val: c }))];
+    container.innerHTML = chips.map(c => {
+        const active = c.val === '' ? !activeFilter : activeFilter === c.val;
+        return `<span class="tag-chip ${active ? 'active' : ''}" data-cat="${c.val}">${c.label}</span>`;
+    }).join('');
+    container.querySelectorAll('.tag-chip').forEach(chip => {
+        chip.addEventListener('click', () => onSelect(chip.getAttribute('data-cat') || null));
+    });
+}
+
 let allFestivalsCache = [];
 let currentPage = 1;
 let searchQuery = '';
+let homeTagFilter = null;
 const PAGE_SIZE = 6;
 
 function getFilteredList() {
-    if (!searchQuery) return allFestivalsCache;
-    const q = searchQuery.toLowerCase();
-    return allFestivalsCache.filter(f =>
-        (f.title || '').toLowerCase().includes(q) ||
-        (f.address || '').toLowerCase().includes(q)
-    );
+    let list = allFestivalsCache;
+    if (homeTagFilter) list = list.filter(f => f.category === homeTagFilter);
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(f =>
+            (f.title || '').toLowerCase().includes(q) ||
+            (f.address || '').toLowerCase().includes(q)
+        );
+    }
+    return list;
 }
 
 document.getElementById('festival-search-input').addEventListener('input', (e) => {
@@ -169,7 +233,7 @@ async function fetchFestivals() {
         // 이제 과거 축제도 포함해서 다 보여줌. 대신 정렬 순서를 지능적으로:
         // 1) 진행중 먼저(종료임박순), 2) 예정(임박순), 3) 종료(최근에 끝난 것 먼저), 4) 날짜없음
         const rankOf = { ongoing: 0, upcoming: 1, ended: 2, unknown: 3 };
-        const withStatus = merged.map(f => ({ ...f, status: getStatus(f) }));
+        const withStatus = merged.map(f => ({ ...f, key: looseKey(f.title), status: getStatus(f) }));
 
         const counts = withStatus.reduce((acc, f) => {
             acc[f.status.key] = (acc[f.status.key] || 0) + 1;
@@ -195,6 +259,7 @@ async function fetchFestivals() {
             allFestivalsCache = withStatus;
             currentPage = 1;
             renderPage();
+            renderCalendar();
         } else {
             throw new Error(errors.join('\n') || '조건에 맞는 축제/행사 데이터가 0개입니다.');
         }
@@ -217,45 +282,74 @@ function renderPage() {
     const start = (currentPage - 1) * PAGE_SIZE;
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
-    renderFestivals(pageItems, true, filtered.length);
-    renderPaginationControls(totalPages);
+    renderFestivals(pageItems, true, filtered.length, 'festival-grid', '該当するイベントが見つかりませんでした。');
+    renderTagFilterChips('tag-filter-wrap', allFestivalsCache, homeTagFilter, (cat) => {
+        homeTagFilter = cat;
+        currentPage = 1;
+        renderPage();
+    });
+    renderPaginationControls(totalPages, 'pagination-controls', currentPage, (p) => { currentPage = p; renderPage(); });
 }
 
-function renderPaginationControls(totalPages) {
-    const container = document.getElementById('pagination-controls');
+// --- ⭐ ブックマーク画面 ---
+let bookmarkPage = 1;
+let bookmarkTagFilter = null;
+
+function getBookmarkedList() {
+    return allFestivalsCache.filter(f => bookmarkedKeys.has(f.key));
+}
+
+function getFilteredBookmarkList() {
+    let list = getBookmarkedList();
+    if (bookmarkTagFilter) list = list.filter(f => f.category === bookmarkTagFilter);
+    return list;
+}
+
+function renderBookmarkPage() {
+    const filtered = getFilteredBookmarkList();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    bookmarkPage = Math.min(Math.max(1, bookmarkPage), totalPages);
+
+    const start = (bookmarkPage - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+    renderFestivals(pageItems, true, filtered.length, 'bookmark-grid', 'まだブックマークしたイベントがありません。');
+    renderTagFilterChips('bookmark-tag-filter-wrap', getBookmarkedList(), bookmarkTagFilter, (cat) => {
+        bookmarkTagFilter = cat;
+        bookmarkPage = 1;
+        renderBookmarkPage();
+    });
+    renderPaginationControls(totalPages, 'bookmark-pagination-controls', bookmarkPage, (p) => { bookmarkPage = p; renderBookmarkPage(); });
+}
+
+function renderPaginationControls(totalPages, containerId, page, onChange) {
+    const container = document.getElementById(containerId);
     container.innerHTML = `
         <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top: 12px;">
-            <button id="page-prev" ${currentPage <= 1 ? 'disabled' : ''} style="padding:6px 14px; border-radius:10px; border:none; background:rgba(255,255,255,0.6); cursor:${currentPage <= 1 ? 'default' : 'pointer'}; opacity:${currentPage <= 1 ? '0.4' : '1'}; font-size:13px;">&lt; 前へ</button>
-            <span style="font-size:13px; color:#515154;">${currentPage} / ${totalPages}</span>
-            <button id="page-next" ${currentPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px; border-radius:10px; border:none; background:rgba(255,255,255,0.6); cursor:${currentPage >= totalPages ? 'default' : 'pointer'}; opacity:${currentPage >= totalPages ? '0.4' : '1'}; font-size:13px;">次へ &gt;</button>
+            <button class="page-prev" ${page <= 1 ? 'disabled' : ''} style="padding:6px 14px; border-radius:10px; border:none; background:rgba(255,255,255,0.6); cursor:${page <= 1 ? 'default' : 'pointer'}; opacity:${page <= 1 ? '0.4' : '1'}; font-size:13px;">&lt; 前へ</button>
+            <span style="font-size:13px; color:#515154;">${page} / ${totalPages}</span>
+            <button class="page-next" ${page >= totalPages ? 'disabled' : ''} style="padding:6px 14px; border-radius:10px; border:none; background:rgba(255,255,255,0.6); cursor:${page >= totalPages ? 'default' : 'pointer'}; opacity:${page >= totalPages ? '0.4' : '1'}; font-size:13px;">次へ &gt;</button>
         </div>
     `;
-
-    document.getElementById('page-prev')?.addEventListener('click', () => {
-        currentPage -= 1;
-        renderPage();
-    });
-    document.getElementById('page-next')?.addEventListener('click', () => {
-        currentPage += 1;
-        renderPage();
-    });
+    container.querySelector('.page-prev')?.addEventListener('click', () => onChange(page - 1));
+    container.querySelector('.page-next')?.addEventListener('click', () => onChange(page + 1));
 }
 
 let currentPageItems = [];
 
-function renderFestivals(festivals, clearGrid = true, totalCount = allFestivalsCache.length) {
-    const grid = document.getElementById('festival-grid');
+function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = 'festival-grid', emptyMessage = '該当するイベントが見つかりませんでした。') {
+    const grid = document.getElementById(gridId);
     if (clearGrid) grid.innerHTML = '';
 
     currentPageItems = festivals;
 
-    grid.insertAdjacentHTML('beforeend',
-        `<p style="grid-column: 1 / -1; font-size: 13px; color: #515154; margin: 0 0 10px 0;">総 ${totalCount}件</p>`
-    );
+    // grid.insertAdjacentHTML('beforeend',
+    //     `<p style="grid-column: 1 / -1; font-size: 13px; color: #515154; margin: 0 0 10px 0;">総 ${totalCount}件</p>`
+    // );
 
     if (totalCount === 0) {
         grid.insertAdjacentHTML('beforeend',
-            `<p style="grid-column: 1 / -1; padding: 30px; text-align:center; color:#8a8a8e;">該当するイベントが見つかりませんでした。</p>`
+            `<p style="grid-column: 1 / -1; padding: 30px; text-align:center; color:#8a8a8e;">${emptyMessage}</p>`
         );
         return;
     }
@@ -276,9 +370,13 @@ function renderFestivals(festivals, clearGrid = true, totalCount = allFestivalsC
             ? `<span class="status-badge ${badgeClass}">${fest.status.label}</span>`
             : '';
 
+        const isBookmarked = bookmarkedKeys.has(fest.key);
+        const bookmarkBtnHtml = `<button class="bookmark-btn ${isBookmarked ? 'active' : ''}" onclick="event.stopPropagation(); toggleBookmark('${fest.key}')">${ICON_BOOKMARK}</button>`;
+
         const cardHTML = `
             <div class="card" onclick="showFestivalDetail(${idx})">
                 ${badgeHtml}
+                ${bookmarkBtnHtml}
                 ${imageTag}
                 <h3>${title}</h3>
                 ${dateStr ? `<p style="font-size: 12px; color: #515154; margin:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ICON_CALENDAR}${dateStr}</p>` : ''}
@@ -290,7 +388,7 @@ function renderFestivals(festivals, clearGrid = true, totalCount = allFestivalsC
     });
 }
 
-// --- 상세정보 화면 (모달이 아니라 별도 화면으로 전환) ---
+// --- 상세정보 화면 (별도 화면으로 전환) ---
 function showFestivalDetail(idx) {
     const fest = currentPageItems[idx];
     if (!fest) return;
@@ -308,6 +406,11 @@ function showFestivalDetail(idx) {
         ? `<span class="status-badge ${fest.status.key === 'ongoing' ? 'ongoing' : fest.status.key === 'ended' ? 'ended' : 'upcoming'}" style="position:static; display:inline-block; margin-bottom:10px;">${fest.status.label}</span>`
         : '';
 
+    const isBookmarked = fest.key ? bookmarkedKeys.has(fest.key) : false;
+    const bookmarkBtnHtml = fest.key
+        ? `<button id="detail-bookmark-btn" class="detail-bookmark-btn ${isBookmarked ? 'active' : ''}" data-key="${fest.key}" onclick="toggleBookmark('${fest.key}')">${ICON_BOOKMARK}<span class="bm-label">${isBookmarked ? 'ブックマーク済み' : 'ブックマークする'}</span></button>`
+        : '';
+
     // 값이 있는 항목만 표로 보여줌 (빈 줄 안 생기게)
     const infoRows = [
         [ICON_CALENDAR, dateStr],
@@ -321,7 +424,6 @@ function showFestivalDetail(idx) {
         [ICON_DOT, fest.useFee && `料金: ${fest.useFee}`],
         [ICON_DOT, fest.discountInfo && `割引情報: ${fest.discountInfo}`],
         [ICON_DOT, fest.spendTime && `観覧所要時間: ${fest.spendTime}`],
-        [ICON_DOT, fest.progressType && `進行形態: ${fest.progressType}`],
         [ICON_DOT, fest.placeInfo && `位置案内: ${fest.placeInfo}`]
     ].filter(([, text]) => Boolean(text));
 
@@ -335,6 +437,7 @@ function showFestivalDetail(idx) {
             <div class="detail-card">
                 ${badgeHtml}
                 <h2>${fest.title || ''}</h2>
+                ${bookmarkBtnHtml}
                 ${rowsHtml}
                 ${summary ? `<p class="detail-summary">${summary}</p>` : ''}
                 ${fest.program ? `<p class="detail-summary"><strong>プログラム</strong><br>${fest.program}</p>` : ''}
@@ -348,8 +451,25 @@ function showFestivalDetail(idx) {
     showView('view-detail');
 }
 
-// --- 📅 달력 로직 (변경 없음) ---
+function showFestivalDetailByKey(key) {
+    const fest = allFestivalsCache.find(f => f.key === key);
+    if (!fest) return;
+    currentPageItems = [fest];
+    showFestivalDetail(0);
+}
+
+// --- 📅 달력 로직 (축제 날짜 표시 + 클릭 시 목록) ---
 let currentDate = new Date(2026, 6, 1);
+
+function buildEventMap() {
+    const map = new Map();
+    allFestivalsCache.forEach(f => {
+        if (!f.startDate) return;
+        if (!map.has(f.startDate)) map.set(f.startDate, []);
+        map.get(f.startDate).push(f);
+    });
+    return map;
+}
 
 function renderCalendar() {
     const year = currentDate.getFullYear();
@@ -362,6 +482,9 @@ function renderCalendar() {
 
     const calendarBody = document.getElementById('calendar-body');
     calendarBody.innerHTML = '';
+    document.getElementById('calendar-day-detail').innerHTML = '';
+
+    const eventMap = buildEventMap();
 
     for (let i = 0; i < firstDayIndex; i++) {
         calendarBody.innerHTML += `<div class="calendar-cell empty"></div>`;
@@ -370,13 +493,35 @@ function renderCalendar() {
     const today = new Date();
     for (let i = 1; i <= lastDay; i++) {
         const isToday = (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) ? 'today' : '';
+        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const dayEvents = eventMap.get(dateKey) || [];
+        const hasEvent = dayEvents.length > 0;
+
+        const dotsHtml = hasEvent
+            ? `<div class="event-dots">${dayEvents.slice(0, 4).map(f => `<span class="event-dot ${bookmarkedKeys.has(f.key) ? 'bookmarked' : ''}"></span>`).join('')}</div>`
+            : '';
 
         calendarBody.innerHTML += `
-            <div class="calendar-cell ${isToday}">
+            <div class="calendar-cell ${isToday} ${hasEvent ? 'has-event' : ''}" ${hasEvent ? `onclick="showDayDetail('${dateKey}')"` : ''}>
                 <span class="calendar-date">${i}</span>
+                ${dotsHtml}
             </div>
         `;
     }
+}
+
+function showDayDetail(dateKey) {
+    const eventMap = buildEventMap();
+    const events = eventMap.get(dateKey) || [];
+    const container = document.getElementById('calendar-day-detail');
+    if (events.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = `
+        <div style="font-weight:700; margin-bottom:8px;">${dateKey} のイベント</div>
+        ${events.map(f => `<div class="day-detail-item" onclick="showFestivalDetailByKey('${f.key}')">${bookmarkedKeys.has(f.key) ? '⭐ ' : ''}${f.title}</div>`).join('')}
+    `;
 }
 
 document.getElementById('btn-prev-month').addEventListener('click', () => {
@@ -389,7 +534,8 @@ document.getElementById('btn-next-month').addEventListener('click', () => {
     renderCalendar();
 });
 
-window.onload = () => {
-    fetchFestivals();
+window.onload = async () => {
+    await loadBookmarks();
+    await fetchFestivals();
     renderCalendar();
 };
