@@ -4,5 +4,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   fetchAllFestivals: () => ipcRenderer.invoke('fetch-all-festivals'),
   getBookmarks: () => ipcRenderer.invoke('get-bookmarks'),
-  toggleBookmark: (key) => ipcRenderer.invoke('toggle-bookmark', key)
+  toggleBookmark: (key) => ipcRenderer.invoke('toggle-bookmark', key),
+  onFetchProgress: (callback) => {
+    ipcRenderer.on('fetch-progress', (event, data) => callback(data));
+  }
 });

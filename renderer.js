@@ -23,8 +23,11 @@ tabs.forEach(tab => {
     });
 });
 
+let lastViewBeforeDetail = 'view-home';
+
 document.getElementById('detail-back-btn').addEventListener('click', () => {
-    showView('view-home');
+    showView(lastViewBeforeDetail);
+    tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-target') === lastViewBeforeDetail));
 });
 
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
@@ -76,7 +79,25 @@ function normalizeHubItem(item) {
         placeInfo: stripHtml(item.placeInfo),
         progressType: stripHtml(item.progressType),
         spendTime: stripHtml(item.spendTime),
-        useFee: stripHtml(item.useFee)
+        useFee: stripHtml(item.useFee),
+        // 🇰🇷 번역 전 원문(한국어) - 상세페이지 "원문 보기" 토글용. hub 항목에만 있음(직접추가/큐레이션은 이미 일본어라 없음).
+        orig: {
+            title: item.orig_title || '',
+            summary: item.orig_outl || '',
+            address: item.orig_eventPlace || item.orig_addr1 || '',
+            category: item.orig_cat2Nm || item.orig_cat1Nm || '',
+            playTime: stripHtml(item.orig_playTime),
+            program: stripHtml(item.orig_program),
+            subEvent: stripHtml(item.orig_subEvent),
+            sponsor1: stripHtml(item.orig_sponsor1),
+            sponsor2: stripHtml(item.orig_sponsor2),
+            ageLimit: stripHtml(item.orig_ageLimit),
+            bookingPlace: stripHtml(item.orig_bookingPlace),
+            discountInfo: stripHtml(item.orig_discountInfo),
+            placeInfo: stripHtml(item.orig_placeInfo),
+            progressType: stripHtml(item.orig_progressType),
+            useFee: stripHtml(item.orig_useFee)
+        }
     };
 }
 
@@ -200,9 +221,49 @@ document.getElementById('festival-search-input').addEventListener('input', (e) =
     renderPage();
 });
 
-async function fetchFestivals() {
+function renderLoadingUI() {
     const grid = document.getElementById('festival-grid');
-    grid.innerHTML = '<p style="padding: 20px;">データを読み込んでいます... (데이터를 불러오는 중입니다...)</p>';
+    // 카드가 없을 때(로딩 중)는 그리드 대신 flex로 바꿔서 화면 중앙에 오게 함
+    grid.style.display = 'flex';
+    grid.style.alignItems = 'center';
+    grid.style.justifyContent = 'center';
+    grid.innerHTML = `
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p id="loading-text" class="loading-text">イベント情報を読み込んでいます...</p>
+            <div class="loading-progress-track">
+                <div id="loading-progress-bar" class="loading-progress-bar" style="width: 0%;"></div>
+            </div>
+            <p id="loading-subtext" class="loading-subtext"></p>
+        </div>
+    `;
+}
+
+function updateLoadingUI({ stage, current, total }) {
+    const text = document.getElementById('loading-text');
+    const sub = document.getElementById('loading-subtext');
+    const bar = document.getElementById('loading-progress-bar');
+    if (!text || !bar) return;
+
+    if (stage === 'list') {
+        text.textContent = 'イベント一覧を取得しています...';
+        sub.textContent = '';
+        bar.style.width = '5%';
+    } else if (stage === 'detail') {
+        text.textContent = '日程・詳細情報を取得しています...';
+        sub.textContent = `${current} / ${total}`;
+        bar.style.width = `${5 + (current / total) * 45}%`; // 전체의 5~50% 구간
+    } else if (stage === 'translate') {
+        text.textContent = '日本語に翻訳しています...';
+        sub.textContent = `${current} / ${total}`;
+        bar.style.width = `${50 + (current / total) * 50}%`; // 전체의 50~100% 구간
+    }
+}
+
+window.api.onFetchProgress(updateLoadingUI);
+
+async function fetchFestivals() {
+    renderLoadingUI();
 
     try {
         const { hubItems, curated, extra, errors, debug } = await window.api.fetchAllFestivals();
@@ -265,7 +326,7 @@ async function fetchFestivals() {
         }
     } catch (err) {
         console.error('API 에러 상세:', err);
-        grid.innerHTML = `
+        document.getElementById('festival-grid').innerHTML = `
             <div style="grid-column: 1 / -1; background: rgba(255, 100, 100, 0.2); backdrop-filter: blur(10px); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255, 0, 0, 0.3);">
                 <h3 style="color: #d32f2f; margin-top: 0;">⚠️ 데이터 로드 실패</h3>
                 <pre style="white-space: pre-wrap; font-size: 13px; color: #111;">${err.message}</pre>
@@ -339,6 +400,10 @@ let currentPageItems = [];
 
 function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = 'festival-grid', emptyMessage = '該当するイベントが見つかりませんでした。') {
     const grid = document.getElementById(gridId);
+    // 로딩 중엔 flex(중앙정렬)로 바꿔놨을 수 있어서, 실제 카드 그릴 땐 그리드로 되돌림
+    grid.style.display = 'grid';
+    grid.style.alignItems = '';
+    grid.style.justifyContent = '';
     if (clearGrid) grid.innerHTML = '';
 
     currentPageItems = festivals;
@@ -379,8 +444,8 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
                 ${bookmarkBtnHtml}
                 ${imageTag}
                 <h3>${title}</h3>
-                ${dateStr ? `<p style="font-size: 12px; color: #515154; margin:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ICON_CALENDAR}${dateStr}</p>` : ''}
-                <p style="font-size: 12px; color: #515154; margin: 4px 0 10px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ICON_PIN}${location}</p>
+                ${dateStr ? `<p style="font-size: 12px; color: #515154; margin:4px 0; display:flex; align-items:center; min-width:0;">${ICON_CALENDAR}<span style="flex:1 1 auto; width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">${dateStr}</span></p>` : ''}
+                <p style="font-size: 12px; color: #515154; margin: 4px 0 10px 0; display:flex; align-items:center; min-width:0;" title="${location}">${ICON_PIN}<span style="flex:1 1 auto; width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">${location}</span></p>
                 <span class="tag">${fest.category || 'フェスティバル・イベント'}</span>
             </div>
         `;
@@ -389,14 +454,64 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
 }
 
 // --- 상세정보 화면 (별도 화면으로 전환) ---
-function showFestivalDetail(idx) {
-    const fest = currentPageItems[idx];
+let currentDetailFest = null;
+let showingOriginalLang = false;
+
+function openDetailForFest(fest) {
     if (!fest) return;
+
+    // 뒤로가기 눌렀을 때 돌아갈 화면을 지금 보이는 화면으로 기억해둠
+    const current = [...views].find(v => v.style.display !== 'none' && v.id !== 'view-detail');
+    if (current) lastViewBeforeDetail = current.id;
+
+    currentDetailFest = fest;
+    showingOriginalLang = false;
+    renderDetailContent();
+
+    tabs.forEach(t => t.classList.remove('active'));
+    showView('view-detail');
+}
+
+function showFestivalDetail(idx) {
+    openDetailForFest(currentPageItems[idx]);
+}
+
+function toggleOriginalLanguage() {
+    showingOriginalLang = !showingOriginalLang;
+    renderDetailContent();
+}
+
+function copyLinkToClipboard(url, btnEl) {
+    navigator.clipboard.writeText(url).then(() => {
+        const original = btnEl.innerHTML;
+        btnEl.innerHTML = '✓';
+        btnEl.classList.add('copied');
+        setTimeout(() => {
+            btnEl.innerHTML = original;
+            btnEl.classList.remove('copied');
+        }, 1200);
+    }).catch(() => {
+        // 복사 실패해도 조용히 무시 (앱이 안 죽게)
+    });
+}
+
+function renderDetailContent() {
+    const fest = currentDetailFest;
+    if (!fest) return;
+
+    // orig(원문 한국어)가 있고 지금 원문 모드면, 번역 가능했던 필드만 원문 값으로 덮어씀
+    // (날짜/이미지/URL처럼 번역 대상이 아닌 값은 항상 fest 그대로)
+    const d = (showingOriginalLang && fest.orig) ? { ...fest, ...fest.orig } : fest;
+
+    // 원문(한국어) 모드일 땐 라벨도 한국어로, 아니면 일본어로
+    const L = showingOriginalLang
+        ? { playTime: '공연시간', sponsor1: '주최', sponsor2: '주관', ageLimit: '관람가능연령', bookingPlace: '예약', useFee: '요금', discountInfo: '할인정보', spendTime: '관람소요시간', placeInfo: '위치안내', program: '프로그램', subEvent: '부대행사', noPlace: '장소미정', noDate: '일정미정', officialSite: '공식사이트를 보기 →' }
+        : { playTime: '公演時間', sponsor1: '主催', sponsor2: '主管', ageLimit: '観覧可能年齢', bookingPlace: '予約', useFee: '料金', discountInfo: '割引情報', spendTime: '観覧所要時間', placeInfo: '位置案内', program: 'プログラム', subEvent: '付帯行事', noPlace: '場所未定', noDate: '日程未定', officialSite: '公式サイトを見る →' };
 
     const dateStr = fest.startDate
         ? `${fest.startDate.replace(/-/g, '.')} ~ ${(fest.endDate || fest.startDate).replace(/-/g, '.')}`
-        : '日程未定';
-    const summary = fest.summary ? fest.summary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+        : L.noDate;
+    const summary = d.summary ? d.summary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
 
     const imageHtml = fest.image
         ? `<img src="${fest.image}" class="detail-image" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'detail-image-placeholder', innerText:'No Image'}))">`
@@ -411,20 +526,27 @@ function showFestivalDetail(idx) {
         ? `<button id="detail-bookmark-btn" class="detail-bookmark-btn ${isBookmarked ? 'active' : ''}" data-key="${fest.key}" onclick="toggleBookmark('${fest.key}')">${ICON_BOOKMARK}<span class="bm-label">${isBookmarked ? 'ブックマーク済み' : 'ブックマークする'}</span></button>`
         : '';
 
+    // 진짜 원문이 있을 때만(내용이 있고, 지금 보이는 텍스트랑 실제로 다를 때만) 버튼을 보여줌.
+    // 예전 캐시처럼 orig 필드가 비어있는 경우엔 버튼 자체를 숨김 (눌러도 아무 변화 없는 상황 방지)
+    const hasRealOrig = Boolean(fest.orig && fest.orig.title && fest.orig.title.trim() && fest.orig.title !== fest.title);
+    const origToggleHtml = hasRealOrig
+        ? `<button class="detail-orig-toggle-btn" onclick="toggleOriginalLanguage()">${showingOriginalLang ? '🇯🇵 日本語で見る' : '🇰🇷 原文（韓国語）を見る'}</button>`
+        : '';
+
     // 값이 있는 항목만 표로 보여줌 (빈 줄 안 생기게)
     const infoRows = [
         [ICON_CALENDAR, dateStr],
-        [ICON_PIN, fest.address || '場所未定'],
-        [ICON_DOT, fest.category],
-        [ICON_DOT, fest.playTime && `公演時間: ${fest.playTime}`],
-        [ICON_DOT, fest.sponsor1 && `主催: ${fest.sponsor1}${fest.sponsor1Tel ? ' (' + fest.sponsor1Tel + ')' : ''}`],
-        [ICON_DOT, fest.sponsor2 && `主管: ${fest.sponsor2}`],
-        [ICON_DOT, fest.ageLimit && `観覧可能年齢: ${fest.ageLimit}`],
-        [ICON_DOT, fest.bookingPlace && `予約: ${fest.bookingPlace}`],
-        [ICON_DOT, fest.useFee && `料金: ${fest.useFee}`],
-        [ICON_DOT, fest.discountInfo && `割引情報: ${fest.discountInfo}`],
-        [ICON_DOT, fest.spendTime && `観覧所要時間: ${fest.spendTime}`],
-        [ICON_DOT, fest.placeInfo && `位置案内: ${fest.placeInfo}`]
+        [ICON_PIN, d.address || L.noPlace],
+        [ICON_DOT, d.category],
+        [ICON_DOT, d.playTime && `${L.playTime}: ${d.playTime}`],
+        [ICON_DOT, d.sponsor1 && `${L.sponsor1}: ${d.sponsor1}${fest.sponsor1Tel ? ' (' + fest.sponsor1Tel + ')' : ''}`],
+        [ICON_DOT, d.sponsor2 && `${L.sponsor2}: ${d.sponsor2}`],
+        [ICON_DOT, d.ageLimit && `${L.ageLimit}: ${d.ageLimit}`],
+        [ICON_DOT, d.bookingPlace && `${L.bookingPlace}: ${d.bookingPlace}`],
+        [ICON_DOT, d.useFee && `${L.useFee}: ${d.useFee}`],
+        [ICON_DOT, d.discountInfo && `${L.discountInfo}: ${d.discountInfo}`],
+        [ICON_DOT, fest.spendTime && `${L.spendTime}: ${fest.spendTime}`],
+        [ICON_DOT, d.placeInfo && `${L.placeInfo}: ${d.placeInfo}`]
     ].filter(([, text]) => Boolean(text));
 
     const rowsHtml = infoRows.map(([icon, text]) =>
@@ -436,26 +558,30 @@ function showFestivalDetail(idx) {
             <div class="detail-layout-image">${imageHtml}</div>
             <div class="detail-card">
                 ${badgeHtml}
-                <h2>${fest.title || ''}</h2>
-                ${bookmarkBtnHtml}
+                <h2>${d.title || ''}</h2>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+                    ${bookmarkBtnHtml}
+                    ${origToggleHtml}
+                </div>
                 ${rowsHtml}
                 ${summary ? `<p class="detail-summary">${summary}</p>` : ''}
-                ${fest.program ? `<p class="detail-summary"><strong>プログラム</strong><br>${fest.program}</p>` : ''}
-                ${fest.subEvent ? `<p class="detail-summary"><strong>付帯行事</strong><br>${fest.subEvent}</p>` : ''}
-                ${fest.homepage ? `<a class="detail-link" href="${fest.homepage}" target="_blank" rel="noopener">公式サイトを見る →</a>` : ''}
+                ${d.program ? `<p class="detail-summary"><strong>${L.program}</strong><br>${d.program}</p>` : ''}
+                ${d.subEvent ? `<p class="detail-summary"><strong>${L.subEvent}</strong><br>${d.subEvent}</p>` : ''}
+                ${fest.homepage ? `
+                <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <a class="detail-link" href="${fest.homepage}" target="_blank" rel="noopener">${L.officialSite}</a>
+                    <button class="copy-link-btn" onclick="copyLinkToClipboard('${fest.homepage}', this)" title="${showingOriginalLang ? 'URL 복사' : 'URLをコピー'}">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                </div>` : ''}
             </div>
         </div>
     `;
-
-    tabs.forEach(t => t.classList.remove('active'));
-    showView('view-detail');
 }
 
 function showFestivalDetailByKey(key) {
     const fest = allFestivalsCache.find(f => f.key === key);
-    if (!fest) return;
-    currentPageItems = [fest];
-    showFestivalDetail(0);
+    openDetailForFest(fest);
 }
 
 // --- 📅 달력 로직 (축제 날짜 표시 + 클릭 시 목록) ---
@@ -497,14 +623,19 @@ function renderCalendar() {
         const dayEvents = eventMap.get(dateKey) || [];
         const hasEvent = dayEvents.length > 0;
 
-        const dotsHtml = hasEvent
-            ? `<div class="event-dots">${dayEvents.slice(0, 4).map(f => `<span class="event-dot ${bookmarkedKeys.has(f.key) ? 'bookmarked' : ''}"></span>`).join('')}</div>`
+        // 점 대신, 날짜 칸 안에 축제 제목을 작은 칩으로 직접 보여줌 (최대 2개 + 나머지는 "+N")
+        const MAX_CHIPS = 2;
+        const chipsHtml = dayEvents.slice(0, MAX_CHIPS).map(f =>
+            `<div class="calendar-event-chip ${bookmarkedKeys.has(f.key) ? 'bookmarked' : ''}">${f.title}</div>`
+        ).join('');
+        const moreHtml = dayEvents.length > MAX_CHIPS
+            ? `<div class="calendar-event-more">+${dayEvents.length - MAX_CHIPS}件</div>`
             : '';
 
         calendarBody.innerHTML += `
             <div class="calendar-cell ${isToday} ${hasEvent ? 'has-event' : ''}" ${hasEvent ? `onclick="showDayDetail('${dateKey}')"` : ''}>
                 <span class="calendar-date">${i}</span>
-                ${dotsHtml}
+                <div class="calendar-event-chips">${chipsHtml}${moreHtml}</div>
             </div>
         `;
     }
@@ -535,6 +666,13 @@ document.getElementById('btn-next-month').addEventListener('click', () => {
 });
 
 window.onload = async () => {
+    // 스플래시는 데이터 로딩과 무관하게, 최소 2.2초 보여준 뒤 서서히 사라짐
+    setTimeout(() => {
+        const splash = document.getElementById('splash-overlay');
+        splash.classList.add('hide');
+        setTimeout(() => splash.remove(), 500);
+    }, 2200);
+
     await loadBookmarks();
     await fetchFestivals();
     renderCalendar();
