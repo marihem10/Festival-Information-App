@@ -85,6 +85,7 @@ body {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
+    padding-right: 18px;
 }
 
 #view-home.view-section {
@@ -113,6 +114,7 @@ header h1 {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    padding-right: 18px;
 }
 
 #festival-grid,
@@ -478,6 +480,14 @@ header h1 {
     justify-content: flex-end;
 }
 
+#pagination-controls {
+    flex: 0 0 auto;
+}
+
+#bookmark-pagination-controls {
+    flex: 0 0 auto;
+}
+
 .search-input-wrap {
     position: relative;
     width: 100%;
@@ -632,6 +642,7 @@ header h1 {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    padding-right: 18px;
 }
 
 /* --- 📅 カレンダーのイベント表示 (ドットの代わりにタイトルチップ) --- */
@@ -647,33 +658,36 @@ header h1 {
 .calendar-cell.has-event:hover {
     background: rgba(255, 255, 255, 0.7);
 }
-.calendar-event-chips {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    margin-top: 4px;
-    min-width: 0;
-}
-.calendar-event-chip {
+.calendar-event-bar {
     font-size: 10px;
     font-weight: 700;
-    line-height: 1.4;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: rgba(0, 122, 255, 0.12);
+    line-height: 18px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    background: rgba(0, 122, 255, 0.15);
     color: var(--primary-blue);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border-radius: 0;
 }
-.calendar-event-chip.bookmarked {
-    background: rgba(255, 179, 0, 0.18);
-    color: #b56a00;
+.calendar-event-bar.bar-start {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+.calendar-event-bar.bar-end {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+.calendar-event-bar.bookmarked {
+    background: #FFB300;
+    color: #442b00;
+    font-weight: 800;
+    box-shadow: 0 1px 5px rgba(255, 179, 0, 0.55);
 }
 .calendar-event-more {
     font-size: 10px;
     color: var(--text-muted);
-    padding: 0 6px;
 }
 
 #calendar-day-detail {

@@ -10,7 +10,9 @@ const views = document.querySelectorAll('.view-section');
 
 function showView(id) {
     views.forEach(v => v.style.display = 'none');
-    document.getElementById(id).style.display = 'block';
+    // 'block'으로 강제하면 view-home/view-bookmarks에 필요한 display:flex(CSS)를 덮어써버려서
+    // 화면 전환 후 레이아웃이 깨짐 - 인라인 스타일을 아예 지워서 CSS가 알아서 결정하게 함
+    document.getElementById(id).style.removeProperty('display');
 }
 
 tabs.forEach(tab => {
@@ -20,6 +22,7 @@ tabs.forEach(tab => {
         const target = tab.getAttribute('data-target');
         showView(target);
         if (target === 'view-bookmarks') renderBookmarkPage();
+        if (target === 'view-calendar') renderCalendar();
     });
 });
 
@@ -104,13 +107,41 @@ function normalizeHubItem(item) {
 function normalizeSimpleItem(item) {
     return {
         title: item.title || '',
-        summary: '',
+        summary: item.summary || '',
         address: item.place || item.address || '',
-        category: '',
+        category: item.category || '',
         image: item.image || '',
         homepage: extractUrl(item.homepage),
         startDate: item.startDate || '',
-        endDate: item.endDate || ''
+        endDate: item.endDate || '',
+        playTime: item.playTime || '',
+        program: item.program || '',
+        subEvent: item.subEvent || '',
+        sponsor1: item.sponsor1 || '',
+        sponsor1Tel: item.sponsor1Tel || '',
+        sponsor2: item.sponsor2 || '',
+        ageLimit: item.ageLimit || '',
+        bookingPlace: item.bookingPlace || '',
+        discountInfo: item.discountInfo || '',
+        placeInfo: item.placeInfo || '',
+        useFee: item.useFee || '',
+        // 🇰🇷 번역 전 원문(한국어) - main.js가 채워준 orig_* 필드에서 가져옴
+        orig: {
+            title: item.orig_title || '',
+            summary: item.orig_summary || '',
+            address: item.orig_place || '',
+            category: item.orig_category || '',
+            playTime: item.orig_playTime || '',
+            program: item.orig_program || '',
+            subEvent: item.orig_subEvent || '',
+            sponsor1: item.orig_sponsor1 || '',
+            sponsor2: item.orig_sponsor2 || '',
+            ageLimit: item.orig_ageLimit || '',
+            bookingPlace: item.orig_bookingPlace || '',
+            discountInfo: item.orig_discountInfo || '',
+            placeInfo: item.orig_placeInfo || '',
+            useFee: item.orig_useFee || ''
+        }
     };
 }
 
@@ -288,7 +319,9 @@ async function fetchFestivals() {
         });
 
         // 전부 합치고, 제목 기준으로 중복 제거
-        const merged = [...hubWithDates, ...extraItems]
+        // 직접추가 항목을 먼저 두어서, 제목이 겹치면 수동으로 넣은(정확한) 쪽이 우선되게 함
+        // (hub 쪽 데이터가 가끔 부정확할 때 이걸로 덮어쓰기 위함)
+        const merged = [...extraItems, ...hubWithDates]
             .filter((f, idx, arr) => arr.findIndex(x => looseKey(x.title) === looseKey(f.title)) === idx);
 
         // 이제 과거 축제도 포함해서 다 보여줌. 대신 정렬 순서를 지능적으로:
@@ -505,8 +538,8 @@ function renderDetailContent() {
 
     // 원문(한국어) 모드일 땐 라벨도 한국어로, 아니면 일본어로
     const L = showingOriginalLang
-        ? { playTime: '공연시간', sponsor1: '주최', sponsor2: '주관', ageLimit: '관람가능연령', bookingPlace: '예약', useFee: '요금', discountInfo: '할인정보', spendTime: '관람소요시간', placeInfo: '위치안내', program: '프로그램', subEvent: '부대행사', noPlace: '장소미정', noDate: '일정미정', officialSite: '공식사이트를 보기 →' }
-        : { playTime: '公演時間', sponsor1: '主催', sponsor2: '主管', ageLimit: '観覧可能年齢', bookingPlace: '予約', useFee: '料金', discountInfo: '割引情報', spendTime: '観覧所要時間', placeInfo: '位置案内', program: 'プログラム', subEvent: '付帯行事', noPlace: '場所未定', noDate: '日程未定', officialSite: '公式サイトを見る →' };
+        ? { playTime: '시간', sponsor1: '주최', sponsor2: '주관', ageLimit: '관람가능연령', bookingPlace: '예약', useFee: '요금', discountInfo: '할인정보', spendTime: '관람소요시간', placeInfo: '위치안내', program: '프로그램', subEvent: '부대행사', noPlace: '장소미정', noDate: '일정미정', officialSite: '공식사이트를 보기 →' }
+        : { playTime: '時間', sponsor1: '主催', sponsor2: '主管', ageLimit: '観覧可能年齢', bookingPlace: '予約', useFee: '料金', discountInfo: '割引情報', spendTime: '観覧所要時間', placeInfo: '位置案内', program: 'プログラム', subEvent: '付帯行事', noPlace: '場所未定', noDate: '日程未定', officialSite: '公式サイトを見る →' };
 
     const dateStr = fest.startDate
         ? `${fest.startDate.replace(/-/g, '.')} ~ ${(fest.endDate || fest.startDate).replace(/-/g, '.')}`
@@ -587,15 +620,31 @@ function showFestivalDetailByKey(key) {
 // --- 📅 달력 로직 (축제 날짜 표시 + 클릭 시 목록) ---
 let currentDate = new Date(2026, 6, 1);
 
-function buildEventMap() {
-    const map = new Map();
-    allFestivalsCache.forEach(f => {
-        if (!f.startDate) return;
-        if (!map.has(f.startDate)) map.set(f.startDate, []);
-        map.get(f.startDate).push(f);
+// 특정 날짜에 "진행 중인" 축제 전부 반환 (하루짜리든 여러날짜든 다 포함)
+// ⚠️ API 쪽 데이터 품질 문제로 가끔 "연중 상시"(1년 내내) 같은 이상한 기간이 들어올 때가 있어서,
+// 30일 넘게 계속되는 항목은 "특정 날짜 정보"로서 의미가 없다고 보고 캘린더에서는 제외함
+// (홈 화면 카드 목록에는 정상적으로 계속 보임, 캘린더 표시에서만 뺌)
+const CALENDAR_MAX_DURATION_DAYS = 30;
+
+function getEventsForDate(dateObj) {
+    return allFestivalsCache.filter(f => {
+        const start = parseIso(f.startDate);
+        if (!start) return false;
+        const end = parseIso(f.endDate) || start;
+        const durationDays = (end - start) / 86400000;
+        if (durationDays > CALENDAR_MAX_DURATION_DAYS) return false;
+        return dateObj >= start && dateObj <= end;
     });
-    return map;
 }
+
+function dateKeyOf(year, month, day) {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+const CAL_MAX_LANES = 3;
+const CAL_BAR_HEIGHT = 18;
+const CAL_BAR_GAP = 3;
+const CAL_TOP_OFFSET = 38; // 셀 안쪽 여백(10px) + 날짜 숫자 높이/여백까지 포함해서 안 겹치게
 
 function renderCalendar() {
     const year = currentDate.getFullYear();
@@ -610,8 +659,6 @@ function renderCalendar() {
     calendarBody.innerHTML = '';
     document.getElementById('calendar-day-detail').innerHTML = '';
 
-    const eventMap = buildEventMap();
-
     for (let i = 0; i < firstDayIndex; i++) {
         calendarBody.innerHTML += `<div class="calendar-cell empty"></div>`;
     }
@@ -619,31 +666,138 @@ function renderCalendar() {
     const today = new Date();
     for (let i = 1; i <= lastDay; i++) {
         const isToday = (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) ? 'today' : '';
-        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const dayEvents = eventMap.get(dateKey) || [];
-        const hasEvent = dayEvents.length > 0;
-
-        // 점 대신, 날짜 칸 안에 축제 제목을 작은 칩으로 직접 보여줌 (최대 2개 + 나머지는 "+N")
-        const MAX_CHIPS = 2;
-        const chipsHtml = dayEvents.slice(0, MAX_CHIPS).map(f =>
-            `<div class="calendar-event-chip ${bookmarkedKeys.has(f.key) ? 'bookmarked' : ''}">${f.title}</div>`
-        ).join('');
-        const moreHtml = dayEvents.length > MAX_CHIPS
-            ? `<div class="calendar-event-more">+${dayEvents.length - MAX_CHIPS}件</div>`
-            : '';
-
+        const dateKey = dateKeyOf(year, month, i);
         calendarBody.innerHTML += `
-            <div class="calendar-cell ${isToday} ${hasEvent ? 'has-event' : ''}" ${hasEvent ? `onclick="showDayDetail('${dateKey}')"` : ''}>
+            <div class="calendar-cell ${isToday}" data-day="${i}" onclick="showDayDetail('${dateKey}')">
                 <span class="calendar-date">${i}</span>
-                <div class="calendar-event-chips">${chipsHtml}${moreHtml}</div>
             </div>
         `;
     }
+
+    // 이벤트 막대는 각 칸 "안"이 아니라, 달력 전체 위에 실제 픽셀 좌표를 계산해서 겹쳐 그림
+    // (같은 축제는 항상 같은 세로 위치를 유지해서 끊기지 않고 이어지게 하기 위함)
+    renderEventOverlayBars(year, month, lastDay);
+}
+
+function renderEventOverlayBars(year, month, lastDay) {
+    const calendarBody = document.getElementById('calendar-body');
+    calendarBody.style.position = 'relative';
+
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month, lastDay);
+
+    // 이번 달에 걸쳐있는 축제만 추출하고, 이번 달 범위로 날짜를 잘라냄
+    const items = allFestivalsCache.map(f => {
+        const start = parseIso(f.startDate);
+        if (!start) return null;
+        const end = parseIso(f.endDate) || start;
+        const durationDays = (end - start) / 86400000;
+        if (durationDays > CALENDAR_MAX_DURATION_DAYS) return null;
+        if (end < monthStart || start > monthEnd) return null;
+        return {
+            fest: f,
+            clipStart: start < monthStart ? monthStart : start,
+            clipEnd: end > monthEnd ? monthEnd : end
+        };
+    }).filter(Boolean);
+
+    // 겹치는 축제끼리 서로 다른 "레인(세로 줄)"에 배정 (구글 캘린더식 interval scheduling)
+    items.sort((a, b) => a.clipStart - b.clipStart || (b.clipEnd - b.clipStart) - (a.clipEnd - a.clipStart));
+    const laneEndDates = [];
+    items.forEach(it => {
+        let lane = 0;
+        while (laneEndDates[lane] !== undefined && laneEndDates[lane] >= it.clipStart) lane++;
+        it.lane = lane;
+        laneEndDates[lane] = it.clipEnd;
+    });
+
+    // 레인이 너무 많아지는 날은 막대 대신 "+N"으로만 표시
+    const overflowCountByDay = {};
+    const segments = [];
+
+    items.forEach(it => {
+        if (it.lane >= CAL_MAX_LANES) {
+            const d = new Date(it.clipStart);
+            while (d <= it.clipEnd) {
+                overflowCountByDay[d.getDate()] = (overflowCountByDay[d.getDate()] || 0) + 1;
+                d.setDate(d.getDate() + 1);
+            }
+            return;
+        }
+
+        // 주(일~토) 경계에서 끊어서 막대 세그먼트로 나눔
+        let segStart = new Date(it.clipStart);
+        while (segStart <= it.clipEnd) {
+            const daysLeftInRow = 6 - segStart.getDay();
+            let segEnd = new Date(segStart);
+            segEnd.setDate(segEnd.getDate() + daysLeftInRow);
+            if (segEnd > it.clipEnd) segEnd = new Date(it.clipEnd);
+
+            segments.push({
+                fest: it.fest,
+                lane: it.lane,
+                startDay: segStart.getDate(),
+                endDay: segEnd.getDate(),
+                isTrueStart: segStart.getTime() === it.clipStart.getTime(),
+                isTrueEnd: segEnd.getTime() === it.clipEnd.getTime()
+            });
+
+            segStart = new Date(segEnd);
+            segStart.setDate(segStart.getDate() + 1);
+        }
+    });
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none;';
+    calendarBody.appendChild(overlay);
+
+    const bodyRect = calendarBody.getBoundingClientRect();
+
+    segments.forEach(seg => {
+        const startCell = calendarBody.querySelector(`.calendar-cell[data-day="${seg.startDay}"]`);
+        const endCell = calendarBody.querySelector(`.calendar-cell[data-day="${seg.endDay}"]`);
+        if (!startCell || !endCell) return;
+
+        const startRect = startCell.getBoundingClientRect();
+        const endRect = endCell.getBoundingClientRect();
+        const isBookmarked = bookmarkedKeys.has(seg.fest.key);
+
+        const bar = document.createElement('div');
+        bar.className = `calendar-event-bar ${seg.isTrueStart ? 'bar-start' : ''} ${seg.isTrueEnd ? 'bar-end' : ''} ${isBookmarked ? 'bookmarked' : ''}`;
+        bar.style.position = 'absolute';
+        bar.style.left = `${startRect.left - bodyRect.left}px`;
+        bar.style.width = `${endRect.right - startRect.left}px`;
+        bar.style.top = `${startRect.top - bodyRect.top + CAL_TOP_OFFSET + seg.lane * (CAL_BAR_HEIGHT + CAL_BAR_GAP)}px`;
+        bar.style.height = `${CAL_BAR_HEIGHT}px`;
+        bar.style.pointerEvents = 'auto';
+        bar.style.cursor = 'pointer';
+        bar.textContent = seg.isTrueStart ? (isBookmarked ? `★ ${seg.fest.title}` : seg.fest.title) : '';
+        bar.onclick = (e) => {
+            e.stopPropagation();
+            showFestivalDetailByKey(seg.fest.key);
+        };
+        overlay.appendChild(bar);
+    });
+
+    Object.keys(overflowCountByDay).forEach(dayStr => {
+        const day = parseInt(dayStr, 10);
+        const cell = calendarBody.querySelector(`.calendar-cell[data-day="${day}"]`);
+        if (!cell) return;
+        const rect = cell.getBoundingClientRect();
+
+        const moreEl = document.createElement('div');
+        moreEl.className = 'calendar-event-more';
+        moreEl.style.position = 'absolute';
+        moreEl.style.left = `${rect.left - bodyRect.left + 4}px`;
+        moreEl.style.top = `${rect.top - bodyRect.top + CAL_TOP_OFFSET + CAL_MAX_LANES * (CAL_BAR_HEIGHT + CAL_BAR_GAP)}px`;
+        moreEl.textContent = `+${overflowCountByDay[day]}件`;
+        overlay.appendChild(moreEl);
+    });
 }
 
 function showDayDetail(dateKey) {
-    const eventMap = buildEventMap();
-    const events = eventMap.get(dateKey) || [];
+    const m = dateKey.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const events = getEventsForDate(new Date(+m[1], +m[2] - 1, +m[3]));
     const container = document.getElementById('calendar-day-detail');
     if (events.length === 0) {
         container.innerHTML = '';
@@ -663,6 +817,12 @@ document.getElementById('btn-prev-month').addEventListener('click', () => {
 document.getElementById('btn-next-month').addEventListener('click', () => {
     currentDate.setMonth(currentDate.getMonth() + 1);
     renderCalendar();
+});
+
+window.addEventListener('resize', () => {
+    if (document.getElementById('view-calendar').style.display !== 'none') {
+        renderCalendar();
+    }
 });
 
 window.onload = async () => {

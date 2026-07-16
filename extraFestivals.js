@@ -1,126 +1,157 @@
 module.exports = [
-// 데이터 형식
+
+    // {
+    // title: '축제명',
+    // startDate: '축제 시작 날짜 ex) 2026-07-01',
+    // endDate: '축제 끝나는 날짜 ex) 2026-08-09',
+    // place: '위치(주소등)',
+    // image: '이미지 주소 복붙',
+    // homepage: '홈페이지주소',
+    // category: '카테고리(행사, 공연, 축제 중 하나 적기)',
+    // sponsor1: '주최',
+    // sponsor2: '주관',
+    // playTime: '축제시간',
+    // useFee: '가격',
+    // program: '축제에서 할수있는 활동(프로그램)'
+    // },
+ {
+    title: '포켓몬 메가페스타 2026 in 부산 「느긋느긋 바캉스」',
+    startDate: '2026-07-17',
+    endDate: '2026-08-09',
+    place: '부산역, 범내골역, 전포역, 광안역, 센텀시티역, 명지 환승센터, 해운대 환승센터, 영도 국립해양박물관 정류소, 롯데백화점 부산본점 등',
+    image: 'https://www.visitbusan.net/upload_data/board_data/BBS_0000009/178304490764355.png',
+    homepage: 'https://pokemonkorea.co.kr/megafesta2026inbusan/menu757',
+    category: '행사',
+    sponsor1: '포켓몬코리아',
+    sponsor2: '부산교통공사, 부산시설공단, 부산버스운송사업조합, BEXCO, 롯데백화점 부산본점 등',
+    playTime: '평일 10:30~20:00 / 금·토·일·공휴일 10:30~20:30 (롯데백화점 부산본점 지하1층 Kinetic Stage 팝업스토어 기준)',
+    useFee: '기본 무료 (테마열차 기념 QR승차권만 유료)',
+    program: '부산역 광장 포토존 / 부산역·범내골역·전포역·광안역·센텀시티역 5개 역 포켓몬카드게임 전시 및 스탬프랠리 / 도시철도 1·2호선 포켓몬 테마열차 운행 / 테마버스 운행 / 롯데백화점 내 포켓몬 팝업스토어(스탬프 경품 교환)'
+  },
+  {
+    title: '제1회 사이언스 로드 in 태종대',
+    startDate: '2026-07-17',
+    endDate: '2026-07-17',
+    place: '태종대 일원',
+    image: 'https://www.visitbusan.net/upload_data/board_data/BBS_0000009/178398813163467.jpg',
+    homepage: 'http://www.goongle.org/board/board_vertical_view.php?&idx=2873&bid=event&sv=&sw=&page=1',
+    category: '행사',
+    playTime: '10:00~17:00 (우천 시 다음날 진행)',
+    useFee: '무료',
+    program: '태종대 과학관광 지도 배포, 해안절경 속 지질과 파도의 과학 해설, 바다와 기후·해양환경 이야기, 반딧불이와 빛의 과학 체험,등대 퀴즈 이벤트, 수국 색 변화 실험(블루멜로우 티 체험)'
+  },
+  {
+    title: '광안리 M 드론라이트쇼 한국의 멋',
+    startDate: '2026-07-18',
+    endDate: '2026-07-18',
+    place: '부산광역시 수영구 광안해변로 219',
+    image: 'https://cdn.prod.website-files.com/6669214a59db5176f76a197e/6a3b44c20473660ab63b2687_2026%EB%85%84%20%EA%B4%91%EC%95%88%EB%A6%ACM%EB%93%9C%EB%A1%A0%EB%9D%BC%EC%9D%B4%ED%8A%B8%EC%87%BC_%EC%9C%A0%EB%B9%84%ED%8C%8C%EC%9D%B4_7%EC%9B%94_4%3B5%20size-6.png',
+    homepage: 'https://www.gwangallimdrone.co.kr/',
+    category: '공연',
+    sponsor1: '부산광역시 수영구청',
+    playTime: '토요일 20:00, 22:00 (하절기 기준, 회당 약 12분, 드론 약 1,000대 투입)',
+    useFee: '무료 (광안리해변 어디서나 관람 가능)',
+  },
+  {
+    title: '광안리 M 드론라이트쇼 포켓몬 느긋느긋 바캉스 in 광안리',
+    startDate: '2026-07-25',
+    endDate: '2026-07-25',
+    place: '부산광역시 수영구 광안해변로 219',
+    image: 'https://cdn.prod.website-files.com/6669214a59db5176f76a197e/6a3b44fa5907ba92335091a5_2026%EB%85%84%20%EA%B4%91%EC%95%88%EB%A6%ACM%EB%93%9C%EB%A1%A0%EB%9D%BC%EC%9D%B4%ED%8A%B8%EC%87%BC_%EC%9C%A0%EB%B9%84%ED%8C%8C%EC%9D%B4_7%EC%9B%94_4%3B5%20size-7.png',
+    homepage: 'https://www.gwangallimdrone.co.kr/',
+    category: '공연',
+    sponsor1: '부산광역시 수영구청',
+    playTime: '토요일 20:00, 22:00 (하절기 기준, 회당 약 12분, 드론 약 1,000대 투입)',
+    useFee: '무료 (광안리해변 어디서나 관람 가능)',
+  },
+  {
+    title: '민락수변공원 반려동물 문화축제',
+    startDate: '2026-07-24',
+    endDate: '2026-07-26',
+    place: '수영구 민락수변공원 일원(GATE 1 ~ GATE 3)',
+    image: 'https://ecimg.cafe24img.com/pg2720b82469806068/blueys31/pet/Poster_01.jpg',
+    homepage: 'https://pettherock.co.kr/index.html',
+    category: '축제',
+    sponsor1: '부산광역시 수영구청',
+    playTime: '17:00~21:00',
+    useFee: '무료',
+    program: '반려동물 동반 요가, 펫션쇼, 장기자랑, 어질리티 체험, 사진 콘테스트, 스탬프 투어, 반려동물 포토존, 전문가 강연·토크콘서트 등'
+  },
+  {
+    title: 'KIMA WEEK 2026 제14회 대한민국 국제해양레저위크',
+    startDate: '2026-07-30',
+    endDate: '2026-08-02',
+    place: '다대포해수욕장',
+    image: 'http://www.kimaweek.org/se2/upload/02147bd0f33e84adb077da3589103979_1782792433_6809.png',
+    homepage: 'http://www.kimaweek.org/html/index.html',
+    category: '행사',
+    sponsor1: '부산광역시',
+    sponsor2: '(사)한국해양레저네트워크',
+    playTime: '15:00~20:00',
+    useFee: '일부 유료',
+    program: '해양레저 체험 프로그램(유료, 홀릭잼 앱에서 예약필요), 인디밴드 공연, 해변 요가, 바다 위 명상 체험, 각종 해양레저 대회 및 행사 연계 프로그램 등'
+  },
+  {
+    title: '2026부산국제사진제',
+    startDate: '2026-07-29',
+    endDate: '2026-08-18',
+    place: '부산항국제전시컨벤션센터, 사상인디스테이션',
+    image: 'https://bipf.kr/2026/assets/img/about-3.jpg',
+    homepage: 'https://bipf.kr/2026/',
+    category: '행사',
+    sponsor1: '부산국제사진제 조직위원회',
+    playTime: '10:00~18:00',
+    useFee: '일부 전시 유료',
+    program: '주제: "사람 人" / 주제전 「Being Human, 다시 사람」, 국제교류전 「World_SEQUENCES」, 국제청년작가전 「시대공감」, 국제 오픈콜 「Hello Human」 등 사진 전시'
+  },
+  {
+    title: '2026 세계도서관정보대회(WLIC)',
+    startDate: '2026-08-10',
+    endDate: '2026-08-13',
+    place: '벡스코, 부산지역 주요 도서관 및 문화시설',
+    image: 'https://www.kla.kr/api/editor/images/2319', 
+    homepage: 'https://2026.ifla.org/',
+    category: '행사',
+    sponsor1: '국제도서관협회연맹(IFLA), 부산광역시',
+    useFee: '홈페이지 참조',
+    program: '세계 최대 규모 도서관·정보 분야 국제 학술대회, 문화 프로그램'
+  },
+  {
+    title: '제14회 부산국제코미디페스티벌(BICF)',
+    startDate: '2026-08-21', // 참고: 실제 공식 행사 기간으로 조사하여 반영함
+    endDate: '2026-08-30',
+    place: '부산 전역 (상세 위치 홈페이지 참조)',
+    image: 'https://img3.daumcdn.net/thumb/R658x0.q70/?fname=https://t1.daumcdn.net/news/202607/15/yonhap/20260715141652506mkgc.jpg',
+    homepage: 'https://bicf.kr/',
+    category: '공연',
+    sponsor1: '부산국제코미디페스티벌 조직위원회',
+    playTime: '프로그램별 상이',
+    useFee: '프로그램별 유료',
+    program: '국내외 유명 코미디언 극장 공연 및 부대행사'
+  },
+  {
+    title: '워터밤 부산 2026',
+    startDate: '2026-08-08',
+    endDate: '2026-08-08',
+    place: '추후 공식 발표 예정',
+    image: 'https://ticketimage.interpark.com/Play/image/large/25/25018514_p.gif', 
+    homepage: 'https://www.waterbombfestival.com/2025-busan-lineup-1',
+    category: '공연',
+    playTime: '13:00 ~ (약 540분)',
+    useFee: '132,000원 (예매처 기준)',
+    program: '아티스트 라이브 퍼포먼스, 워터파이팅(물총싸움) 등'
+  },
 //   {
-//     title: '어떤 축제 이름',
-//     startDate: '2026-09-01',
-//     endDate: '2026-09-03',
-//     place: '장소',
-//     image: 'https://이미지주소.jpg',
-//     homepage: 'https://홈페이지'
-//   }
-// 어디서도 자동으로 못 찾은 축제/행사를 직접 추가하고 싶을 때 여기에 채워 넣으세요.
-// 이 배열에 넣은 항목은 hub API/festivalbusan.com 결과와 합쳐져서 그대로 화면에 뜹니다.
-// (2026-07-14 기준, 사용자가 직접 조사한 7~9월 부산 축제/행사 목록)
-//   {
-//     title: '제48차 유네스코 세계유산위원회',
-//     startDate: '2026-07-13',
-//     endDate: '2026-07-29',
-//     place: '부산 벡스코',
-//     image: '',
-//     homepage: 'https://48whcbusan2026.kr/ko/'
-//   },
-//   {
-//     title: '포켓몬 메가페스타 2026 in 부산 「느긋느긋 바캉스」',
-//     startDate: '2026-07-17',
-//     endDate: '2026-08-09',
-//     place: '부산역, 범내골역, 전포역, 광안역, 센텀시티역, 명지 환승센터, 해운대 환승센터, 영도 국립해양박물관 정류소, 롯데백화점 부산본점 등',
-//     image: '',
-//     homepage: 'https://pokemonkorea.co.kr/megafesta2026inbusan/menu757'
-//   },
-//   {
-//     title: '제1회 사이언스 로드 in 태종대',
-//     startDate: '2026-07-17',
-//     endDate: '2026-07-17',
-//     place: '태종대 일원',
-//     image: '',
-//     homepage: 'http://www.goongle.org/board/board_vertical_view.php?&idx=2873&bid=event&sv=&sw=&page=1'
-//   },
-//   {
-//     title: '2026 피란수도 부산 국가유산 야행',
-//     startDate: '2026-07-24',
-//     endDate: '2026-07-25',
-//     place: '영도다리(유라리광장) 등 피란수도 부산유산 일원',
-//     image: '',
-//     homepage: 'https://busan-heritage-night.com/html/main/main.php'
-//   },
-//   {
-//     title: '민락수변공원 반려동물 문화축제',
-//     startDate: '2026-07-24',
-//     endDate: '2026-07-26',
-//     place: '수영구 민락수변공원 일원(GATE 1 ~ GATE 3)',
-//     image: '',
-//     homepage: 'https://pettherock.co.kr/index.html'
-//   },
-//   {
-//     title: 'KIMA WEEK 2026 제14회 대한민국 국제해양레저위크',
-//     startDate: '2026-07-30',
-//     endDate: '2026-08-02',
-//     place: '다대포해수욕장',
-//     image: '',
-//     homepage: 'http://www.kimaweek.org/html/index.html'
-//   },
-//   {
-//     title: '2026부산국제사진제',
-//     startDate: '2026-07-29',
-//     endDate: '2026-08-18',
-//     place: '부산항국제전시컨벤션센터, 사상인디스테이션',
-//     image: '',
-//     homepage: 'https://bipf.kr/2026/'
-//   },
-//   {
-//     title: '일러스타 페스 12',
-//     startDate: '2026-08-01',
-//     endDate: '2026-08-02',
-//     place: '부산 벡스코(BEXCO) 제2전시장 4홀',
-//     image: '',
-//     homepage: 'https://illustar.net/'
-//   },
-//   {
-//     title: '2026 세계도서관정보대회',
-//     startDate: '2026-08-10',
-//     endDate: '2026-08-13',
-//     place: '벡스코, 부산지역 주요 도서관 및 문화시설',
-//     image: '',
-//     homepage: 'https://2026.ifla.org/'
-//   },
-//   {
-//     title: '제14회 BICF 부산국제코미디페스티벌',
-//     startDate: '2026-08-10',
-//     endDate: '2026-08-13',
-//     place: '',
-//     image: '',
-//     homepage: 'https://bicf.kr/'
-//   },
-//   {
-//     title: '2026 월드 스마트시티 엑스포',
-//     startDate: '2026-09-09',
-//     endDate: '2026-09-11',
-//     place: '벡스코 제1전시장',
-//     image: '',
-//     homepage: 'https://worldsmartcityexpo.com/#2'
-//   },
-//   {
-//     title: '2026 K-ICT WEEK in BUSAN',
-//     startDate: '2026-09-09',
-//     endDate: '2026-09-11',
-//     place: '벡스코 제1전시장',
-//     image: '',
-//     homepage: 'https://ictweek.kr/en/html/00_main/'
-//   },
-//   {
-//     title: '부산국제공연예술제[B.P.A.F]',
-//     startDate: '2026-09-18',
-//     endDate: '2026-09-20',
-//     place: '금정구 온천천 및 부산대학로',
-//     image: '',
-//     homepage: 'https://www.gjfac.org/gjfac/template.php?midx=402'
-//   },
-//   {
-//     title: '대한민국 청년의 날 축제',
-//     startDate: '2026-09-18',
-//     endDate: '2026-09-20',
-//     place: '부산광역시 수영구 광안해변로 219 (광안동) 광안리해수욕장',
-//     image: '',
-//     homepage: 'https://youthday.or.kr/'
+//     title: '제4회 다대포 선셋 영화축제',
+//     startDate: '2026-08-14',
+//     endDate: '2026-08-16',
+//     place: '다대포해수욕장 일원',
+//     image: '', 
+//     homepage: 'https://www.dsff.kr/kor/index.asp',
+//     category: '축제',
+//     sponsor1: '사하구, 다대포선셋영화축제 조직위원회',
+//     playTime: '상영작 및 행사별 상이',
+//     useFee: '무료',
+//     program: '해변 레드카펫, 개·폐막작 및 단편영화 상영, 관객과의 대화(GV), 다대포차 등'
 //   }
 ];

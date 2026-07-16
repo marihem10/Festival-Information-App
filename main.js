@@ -42,6 +42,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
+    minWidth: 1000,  // 이보다 작아지면 레이아웃 계산이 깨져서 최소 크기로 막아둠
+    minHeight: 700,
     show: false, // 첫 페인트 전 빈 화면 깜빡임 방지 - ready-to-show에서 보여줌
     icon: path.join(__dirname, 'logo.png'), // 작업표시줄/창 아이콘
     webPreferences: {
@@ -153,7 +155,20 @@ async function fetchHubEvents() {
     if (pageNo > 10) break;
   }
 
-  return allItems;
+  return filterExcludedHubItems(allItems);
+}
+
+// hub API 자체 데이터에 문제가 있는(예: 날짜가 1년 내내로 잘못된) 항목을 제목 키워드로 걸러서 제외함.
+// 대신 extraFestivals.js에 정확한 정보로 직접 추가해서 그게 보이게 함.
+const HUB_EXCLUDE_KEYWORDS = [
+  '광안리 M', '광안리M' // 드론라이트쇼 - hub 쪽 날짜가 2026.01.01~12.31로 잘못되어 있어서 제외
+];
+
+function filterExcludedHubItems(items) {
+  return items.filter((item) => {
+    const title = item.title || '';
+    return !HUB_EXCLUDE_KEYWORDS.some((kw) => title.includes(kw));
+  });
 }
 
 // 한국관광공사가 공식 문서화해둔 detailIntro2(국문)로 날짜/장소/프로그램 등 상세정보를 받아옴.
@@ -240,10 +255,17 @@ async function enrichWithDates(items, concurrency = 15, onProgress) {
 // --- 🌐 자동번역 (한국어 → 일본어) ---
 // DeepL을 우선 사용 (품질 좋음, deepl.com에서 무료 API 키 발급).
 // 키가 없으면 자동으로 구글 번역(비공식, 품질은 낮지만 키 필요 없음)으로 대체 동작함.
-const TRANSLATABLE_FIELDS = [
+const HUB_TRANSLATABLE_FIELDS = [
   'title', 'outl', 'addr1', 'cat1Nm', 'cat2Nm', 'eventPlace',
   'playTime', 'program', 'subEvent', 'sponsor1', 'sponsor2',
   'ageLimit', 'bookingPlace', 'discountInfo', 'placeInfo', 'progressType', 'useFee'
+];
+
+// curatedFestivals.js / extraFestivals.js는 필드명이 hub랑 달라서 별도 목록 사용
+const SIMPLE_TRANSLATABLE_FIELDS = [
+  'title', 'summary', 'place', 'category',
+  'playTime', 'program', 'subEvent', 'sponsor1', 'sponsor2',
+  'ageLimit', 'bookingPlace', 'discountInfo', 'placeInfo', 'useFee'
 ];
 
 // DeepL은 text를 배열로 그대로 보내면, 번역 결과도 정확히 같은 순서/개수로 돌려줌
@@ -306,7 +328,7 @@ async function googleTranslateOne(text) {
 }
 
 // 모든 항목의 모든 번역 대상 필드를 하나의 평평한 목록으로 모아서, DeepL에 청크 단위로 보냄
-async function translateItemsToJapanese(items, onProgress) {
+async function translateItemsToJapanese(items, onProgress, fields = HUB_TRANSLATABLE_FIELDS) {
   const useDeepL = Boolean(config.DEEPL_API_KEY && config.DEEPL_API_KEY.trim());
   if (useDeepL) {
     const k = config.DEEPL_API_KEY.trim();
@@ -316,7 +338,7 @@ async function translateItemsToJapanese(items, onProgress) {
   const flatTexts = [];
   const indexMap = []; // [{itemIdx, field}]
   items.forEach((item, itemIdx) => {
-    TRANSLATABLE_FIELDS.forEach((field) => {
+    fields.forEach((field) => {
       const val = item[field];
       if (val && val.trim()) {
         flatTexts.push(val);
@@ -328,7 +350,7 @@ async function translateItemsToJapanese(items, onProgress) {
   const results = items.map((item) => ({ ...item }));
 
   // 번역하기 전에 원문(한국어)을 orig_* 필드로 따로 보관해둠 - 상세페이지 "원문 보기" 토글용
-  TRANSLATABLE_FIELDS.forEach((field) => {
+  fields.forEach((field) => {
     results.forEach((r) => {
       r[`orig_${field}`] = r[field] || '';
     });
@@ -432,6 +454,21 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     errors: [],
     debug: ''
   };
+
+  // 큐레이션/직접추가 파일은 개수가 적어서(캐시 없이) 매번 바로 번역함 - 원문(한국어)도 같이 보관해서
+  // 상세페이지 "원문 보기" 토글이 이 항목들에도 똑같이 작동하게 함
+  try {
+    const { items: translatedCurated } = await translateItemsToJapanese(curatedFestivals, null, SIMPLE_TRANSLATABLE_FIELDS);
+    result.curated = translatedCurated;
+  } catch (e) {
+    result.errors.push(`큐레이션 번역 실패(원문 유지): ${e.message}`);
+  }
+  try {
+    const { items: translatedExtra } = await translateItemsToJapanese(extraFestivals, null, SIMPLE_TRANSLATABLE_FIELDS);
+    result.extra = translatedExtra;
+  } catch (e) {
+    result.errors.push(`직접추가 번역 실패(원문 유지): ${e.message}`);
+  }
 
   const cached = readCache();
   if (cached) {
