@@ -4,7 +4,29 @@ const fs = require('fs');
 const https = require('https');
 const config = require('./config');
 const curatedFestivals = require('./curatedFestivals');
-const extraFestivals = require('./extraFestivals');
+const extraFestivals = require('./extraFestivals'); // Firestore 연결 실패 시 대체용(fallback)으로 계속 씀
+
+// --- 🔥 Firestore (직접추가 축제를 코드 대신 데이터베이스에서 관리) ---
+// ⚠️ 여기서는 "읽기 전용" 클라이언트 SDK만 사용함 (관리자 키는 절대 앱에 포함하지 않음).
+// firebaseConfig 값은 공개돼도 되는 값 - 실제 보안은 Firestore 콘솔의 보안규칙이 담당함
+// (festivals 컬렉션은 누구나 읽기만 가능, 쓰기는 전부 차단하도록 설정해둔 상태여야 함).
+let firestoreDb = null;
+try {
+  const { initializeApp } = require('firebase/app');
+  const { getFirestore } = require('firebase/firestore');
+  const fbApp = initializeApp(config.firebaseConfig);
+  firestoreDb = getFirestore(fbApp);
+  console.log('[main] Firestore(읽기 전용) 연결 성공');
+} catch (e) {
+  console.log('[main] Firestore 연결 안 됨 - extraFestivals.js로 대체:', e.message);
+}
+
+async function fetchFirestoreFestivals() {
+  if (!firestoreDb) return null;
+  const { collection, getDocs } = require('firebase/firestore');
+  const snapshot = await getDocs(collection(firestoreDb, 'festivals'));
+  return snapshot.docs.map((doc) => doc.data());
+}
 
 // 매번 74건씩 다시 조회하면 느리니까, 결과를 파일로 저장해뒀다가
 // 일정 시간 안에 다시 열면 그걸 바로 씀 (3시간 지나면 다시 살아있는 데이터로 갱신)
@@ -464,7 +486,19 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     result.errors.push(`큐레이션 번역 실패(원문 유지): ${e.message}`);
   }
   try {
-    const { items: translatedExtra } = await translateItemsToJapanese(extraFestivals, null, SIMPLE_TRANSLATABLE_FIELDS);
+    // Firestore에서 받아오는 걸 우선하고, 실패하거나(연결 안 됨) 비어있으면 로컬 extraFestivals.js로 대체
+    let extraSource = extraFestivals;
+    try {
+      const firestoreItems = await fetchFirestoreFestivals();
+      if (firestoreItems && firestoreItems.length > 0) {
+        extraSource = firestoreItems;
+        console.log(`[main] Firestore에서 ${firestoreItems.length}건 받아옴`);
+      }
+    } catch (e) {
+      console.log('[main] Firestore 조회 실패, extraFestivals.js로 대체:', e.message);
+    }
+
+    const { items: translatedExtra } = await translateItemsToJapanese(extraSource, null, SIMPLE_TRANSLATABLE_FIELDS);
     result.extra = translatedExtra;
   } catch (e) {
     result.errors.push(`직접추가 번역 실패(원문 유지): ${e.message}`);

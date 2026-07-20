@@ -48,6 +48,14 @@ function parseIso(s) {
     return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
+// 시작일=종료일(하루짜리 축제)이면 날짜를 한 번만 보여주고, 아니면 "시작 ~ 종료"로 보여줌
+function formatDateRange(fest) {
+    if (!fest.startDate) return '';
+    const start = fest.startDate.replace(/-/g, '.');
+    const end = (fest.endDate || fest.startDate).replace(/-/g, '.');
+    return start === end ? start : `${start} ~ ${end}`;
+}
+
 // hub의 hmpg 필드는 "공식 홈페이지 https://..." 처럼 설명 텍스트가 섞여서 오는 경우가 있어서
 // 순수 URL 부분만 뽑아냄
 function extractUrl(text) {
@@ -319,9 +327,9 @@ async function fetchFestivals() {
         });
 
         // 전부 합치고, 제목 기준으로 중복 제거
-        // 직접추가 항목을 먼저 두어서, 제목이 겹치면 수동으로 넣은(정확한) 쪽이 우선되게 함
-        // (hub 쪽 데이터가 가끔 부정확할 때 이걸로 덮어쓰기 위함)
-        const merged = [...extraItems, ...hubWithDates]
+        // hub가 더 최신으로 계속 갱신되는 소스라서, 겹치면 hub 쪽을 우선함.
+        // hub 데이터에 문제가 있는 특정 항목은 main.js의 HUB_EXCLUDE_KEYWORDS로 콕 집어서 걸러냄.
+        const merged = [...hubWithDates, ...extraItems]
             .filter((f, idx, arr) => arr.findIndex(x => looseKey(x.title) === looseKey(f.title)) === idx);
 
         // 이제 과거 축제도 포함해서 다 보여줌. 대신 정렬 순서를 지능적으로:
@@ -455,9 +463,7 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
     festivals.forEach((fest, idx) => {
         const title = fest.title || 'タイトルなし';
         const location = fest.address || '場所未定';
-        const dateStr = fest.startDate
-            ? `${fest.startDate.replace(/-/g, '.')} ~ ${(fest.endDate || fest.startDate).replace(/-/g, '.')}`
-            : '';
+        const dateStr = formatDateRange(fest);
 
         const imageTag = fest.image
             ? `<img src="${fest.image}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {style:'width:calc(100% + 32px); height:150px; background:rgba(0,0,0,0.05); border-radius:18px 18px 0 0; margin: -16px -16px 12px -16px; display:flex; align-items:center; justify-content:center; color:#515154; font-weight:bold; font-size:12px;', innerText:'No Image'}))" style="width:calc(100% + 32px); height:150px; object-fit:contain; background:rgba(0,0,0,0.04); border-radius:18px 18px 0 0; margin: -16px -16px 12px -16px; display:block;">`
@@ -541,9 +547,7 @@ function renderDetailContent() {
         ? { playTime: '시간', sponsor1: '주최', sponsor2: '주관', ageLimit: '관람가능연령', bookingPlace: '예약', useFee: '요금', discountInfo: '할인정보', spendTime: '관람소요시간', placeInfo: '위치안내', program: '프로그램', subEvent: '부대행사', noPlace: '장소미정', noDate: '일정미정', officialSite: '공식사이트를 보기 →' }
         : { playTime: '時間', sponsor1: '主催', sponsor2: '主管', ageLimit: '観覧可能年齢', bookingPlace: '予約', useFee: '料金', discountInfo: '割引情報', spendTime: '観覧所要時間', placeInfo: '位置案内', program: 'プログラム', subEvent: '付帯行事', noPlace: '場所未定', noDate: '日程未定', officialSite: '公式サイトを見る →' };
 
-    const dateStr = fest.startDate
-        ? `${fest.startDate.replace(/-/g, '.')} ~ ${(fest.endDate || fest.startDate).replace(/-/g, '.')}`
-        : L.noDate;
+    const dateStr = formatDateRange(fest) || L.noDate;
     const summary = d.summary ? d.summary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
 
     const imageHtml = fest.image
