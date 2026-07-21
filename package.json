@@ -1,15 +1,40 @@
 {
-  "name": "abc",
-  "version": "1.0.0",
+  "name": "busan-navi",
+  "version": "1.0.1",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win"
   },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "firebase-admin": "^12.0.0"
   },
   "dependencies": {
-    "firebase": "^10.0.0",
-    "firebase-admin": "^12.0.0"
+    "firebase": "^10.0.0"
+  },
+  "build": {
+    "appId": "com.busannavi.app",
+    "productName": "釜山フェスナビ",
+    "files": [
+      "**/*",
+      "!serviceAccountKey.json",
+      "!migrate-to-firestore.js",
+      "!*.md",
+      "!부산축제_7_9월정리.txt",
+      "!.gitignore",
+      "!.git"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }

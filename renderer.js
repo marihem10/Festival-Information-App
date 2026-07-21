@@ -1,8 +1,7 @@
 // 🔒 데이터 소스:
 // ① hubItems: 한국관광콘텐츠랩 내부 API (실시간, 이미지/설명)
 // ② detailIntro2(공식 TourAPI)로 보완된 날짜
-// ③ curated: 8대 대표축제 수동 입력 (curatedFestivals.js) - 날짜 보완용
-// ④ extra: 사용자가 직접 추가하는 파일 (extraFestivals.js)
+// ③ extra: 사용자가 직접 추가하는 파일 (extraFestivals.js)
 
 // --- 탭 전환 로직 ---
 const tabs = document.querySelectorAll('.menu li');
@@ -21,6 +20,7 @@ tabs.forEach(tab => {
         tab.classList.add('active');
         const target = tab.getAttribute('data-target');
         showView(target);
+        if (target === 'view-home') renderPage();
         if (target === 'view-bookmarks') renderBookmarkPage();
         if (target === 'view-calendar') renderCalendar();
     });
@@ -31,6 +31,9 @@ let lastViewBeforeDetail = 'view-home';
 document.getElementById('detail-back-btn').addEventListener('click', () => {
     showView(lastViewBeforeDetail);
     tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-target') === lastViewBeforeDetail));
+    if (lastViewBeforeDetail === 'view-home') renderPage();
+    if (lastViewBeforeDetail === 'view-bookmarks') renderBookmarkPage();
+    if (lastViewBeforeDetail === 'view-calendar') renderCalendar();
 });
 
 document.getElementById('sidebar-toggle').addEventListener('click', () => {

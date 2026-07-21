@@ -123,6 +123,8 @@ header h1 {
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     min-height: 100%;
+    align-content: start;
+    align-items: start;
 }
 
 /* 유리 질감 카드 디자인 */
