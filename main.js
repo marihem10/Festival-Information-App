@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const config = require('./config');
-const curatedFestivals = require('./curatedFestivals');
 const extraFestivals = require('./extraFestivals'); // Firestore 연결 실패 시 대체용(fallback)으로 계속 씀
 
 // --- 🔥 Firestore (직접추가 축제를 코드 대신 데이터베이스에서 관리) ---
@@ -283,7 +282,7 @@ const HUB_TRANSLATABLE_FIELDS = [
   'ageLimit', 'bookingPlace', 'discountInfo', 'placeInfo', 'progressType', 'useFee'
 ];
 
-// curatedFestivals.js / extraFestivals.js는 필드명이 hub랑 달라서 별도 목록 사용
+// extraFestivals.js는 필드명이 hub랑 달라서 별도 목록 사용
 const SIMPLE_TRANSLATABLE_FIELDS = [
   'title', 'summary', 'place', 'category',
   'playTime', 'program', 'subEvent', 'sponsor1', 'sponsor2',
@@ -471,20 +470,13 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
 
   const result = {
     hubItems: [],
-    curated: curatedFestivals,
     extra: extraFestivals,
     errors: [],
     debug: ''
   };
 
-  // 큐레이션/직접추가 파일은 개수가 적어서(캐시 없이) 매번 바로 번역함 - 원문(한국어)도 같이 보관해서
+  // 직접추가 파일은 개수가 적어서(캐시 없이) 매번 바로 번역함 - 원문(한국어)도 같이 보관해서
   // 상세페이지 "원문 보기" 토글이 이 항목들에도 똑같이 작동하게 함
-  try {
-    const { items: translatedCurated } = await translateItemsToJapanese(curatedFestivals, null, SIMPLE_TRANSLATABLE_FIELDS);
-    result.curated = translatedCurated;
-  } catch (e) {
-    result.errors.push(`큐레이션 번역 실패(원문 유지): ${e.message}`);
-  }
   try {
     // Firestore에서 받아오는 걸 우선하고, 실패하거나(연결 안 됨) 비어있으면 로컬 extraFestivals.js로 대체
     let extraSource = extraFestivals;

@@ -1,7 +1,7 @@
 // 🔒 데이터 소스:
 // ① hubItems: 한국관광콘텐츠랩 내부 API (실시간, 이미지/설명)
 // ② detailIntro2(공식 TourAPI)로 보완된 날짜
-// ③ extra: 사용자가 직접 추가하는 파일 (extraFestivals.js)
+// ③ extra: Firestore(또는 실패 시 extraFestivals.js) - 직접 추가하는 축제
 
 // --- 탭 전환 로직 ---
 const tabs = document.querySelectorAll('.menu li');
@@ -308,31 +308,18 @@ async function fetchFestivals() {
     renderLoadingUI();
 
     try {
-        const { hubItems, curated, extra, errors, debug } = await window.api.fetchAllFestivals();
+        const { hubItems, extra, errors, debug } = await window.api.fetchAllFestivals();
 
-        console.log(`[진단] hub=${hubItems.length}건, 큐레이션=${curated.length}건, 직접추가=${extra.length}건`, errors);
+        console.log(`[진단] hub=${hubItems.length}건, 직접추가=${extra.length}건`, errors);
         console.log(`[진단-main] ${debug}`);
 
         const hub = hubItems.map(normalizeHubItem);
         const extraItems = extra.map(normalizeSimpleItem);
-        const curatedItems = curated.map(normalizeSimpleItem);
-
-        // hub 항목의 빈 날짜를 큐레이션 목록에서 제목 매칭으로 보완 (fallback)
-        const hubWithDates = hub.map(f => {
-            if (f.startDate) return f;
-            const fKey = looseKey(f.title);
-            const match = curatedItems.find(c => {
-                const cKey = looseKey(c.title);
-                return fKey.includes(cKey) || cKey.includes(fKey);
-            });
-            if (!match) return f;
-            return { ...f, startDate: match.startDate, endDate: match.endDate };
-        });
 
         // 전부 합치고, 제목 기준으로 중복 제거
         // hub가 더 최신으로 계속 갱신되는 소스라서, 겹치면 hub 쪽을 우선함.
         // hub 데이터에 문제가 있는 특정 항목은 main.js의 HUB_EXCLUDE_KEYWORDS로 콕 집어서 걸러냄.
-        const merged = [...hubWithDates, ...extraItems]
+        const merged = [...hub, ...extraItems]
             .filter((f, idx, arr) => arr.findIndex(x => looseKey(x.title) === looseKey(f.title)) === idx);
 
         // 이제 과거 축제도 포함해서 다 보여줌. 대신 정렬 순서를 지능적으로:
