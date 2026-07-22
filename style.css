@@ -193,6 +193,78 @@ header h1 {
     border-radius: 8px;
 }
 
+.calendar-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.calendar-info-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--primary-blue);
+    font-size: 13px;
+    font-weight: 800;
+    cursor: help;
+    border: 1.5px solid var(--primary-blue);
+}
+
+.calendar-info-tooltip {
+    display: none;
+    position: absolute;
+    top: 30px;
+    right: 0;
+    width: 260px;
+    background: rgba(20, 20, 25, 0.94);
+    color: #ffffff;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: left;
+    z-index: 30;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    cursor: default;
+}
+.calendar-info-tooltip strong {
+    font-size: 13px;
+}
+.calendar-info-icon:hover .calendar-info-tooltip {
+    display: block;
+}
+
+.cal-filter-btn {
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.cal-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+}
+.cal-filter-btn.active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+#cal-filter-bookmark.active {
+    background: #FFB300;
+    border-color: #FFB300;
+}
+
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -246,6 +318,11 @@ header h1 {
     text-align: center;
     line-height: 24px;
     border-radius: 50%;
+}
+
+.calendar-cell.selected {
+    box-shadow: 0 0 0 2px var(--primary-blue) inset;
+    background: rgba(0, 122, 255, 0.08);
 }
 
 /* 🪟 축제 상세정보 화면 (모달 대신 별도 화면으로 전환) */
@@ -647,7 +724,7 @@ header h1 {
     padding-right: 18px;
 }
 
-/* --- 📅 カレンダーのイベント表示 (ドットの代わりにタイトルチップ) --- */
+/* ---  캘린터 일정 --- */
 .calendar-cell {
     position: relative;
     cursor: default;
@@ -663,15 +740,17 @@ header h1 {
 .calendar-event-bar {
     font-size: 10px;
     font-weight: 700;
+    height: 18px;
     line-height: 18px;
     box-sizing: border-box;
     padding: 0 6px;
-    background: rgba(0, 122, 255, 0.15);
-    color: var(--primary-blue);
+    background: linear-gradient(135deg, #5B7FB5, #34517F);
+    color: #ffffff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     border-radius: 0;
+    box-shadow: 0 1px 4px rgba(52, 81, 127, 0.632);
 }
 .calendar-event-bar.bar-start {
     border-top-left-radius: 6px;
@@ -682,14 +761,18 @@ header h1 {
     border-bottom-right-radius: 6px;
 }
 .calendar-event-bar.bookmarked {
-    background: #FFB300;
-    color: #442b00;
+    background: linear-gradient(135deg, #E3A94A, #C9860B);
+    color: #3d2400;
     font-weight: 800;
-    box-shadow: 0 1px 5px rgba(255, 179, 0, 0.55);
+    box-shadow: 0 1px 5px rgba(201, 134, 11, 0.733);
 }
 .calendar-event-more {
     font-size: 10px;
     color: var(--text-muted);
+}
+.calendar-event-more.has-bookmark {
+    color: #b56a00;
+    font-weight: 700;
 }
 
 #calendar-day-detail {
@@ -716,7 +799,7 @@ header h1 {
     color: var(--primary-blue);
 }
 
-/* --- ⏳ 로딩 화면 --- */
+/* ---  로딩 화면 --- */
 .loading-box {
     display: flex;
     flex-direction: column;
@@ -768,7 +851,7 @@ header h1 {
     margin: 10px 0 0 0;
 }
 
-/* --- 🌅 スプラッシュ（別ウィンドウではなく同じ画面内のオーバーレイ） --- */
+/* --- 스플래시 화면 --- */
 #splash-overlay {
     position: fixed;
     inset: 0;

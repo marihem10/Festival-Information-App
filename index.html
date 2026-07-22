@@ -57,6 +57,19 @@
                 <h2 id="calendar-month-year" style="margin:0; font-size:20px;">2026年 7月</h2>
                 <button id="btn-next-month">&gt;</button>
             </div>
+
+            <div class="calendar-filter-toggle">
+                <button id="cal-filter-all" class="cal-filter-btn active">すべて</button>
+                <button id="cal-filter-bookmark" class="cal-filter-btn">★ ブックマークのみ</button>
+                <span class="calendar-info-icon">
+                    ?
+                    <span class="calendar-info-tooltip">
+                        <strong>カレンダーの見方</strong><br>
+                        ★マーク = ブックマークしたイベントです。<br>
+                        「+N」= まだ表示できていないイベントが N件あります。数字をクリックすると全部見られます。
+                    </span>
+                </span>
+            </div>
             
             <div class="calendar-grid" id="calendar-days-header">
                 <div class="calendar-day-name" style="color:#e74c3c;">日</div>

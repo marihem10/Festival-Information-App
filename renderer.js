@@ -136,6 +136,8 @@ function normalizeSimpleItem(item) {
         discountInfo: item.discountInfo || '',
         placeInfo: item.placeInfo || '',
         useFee: item.useFee || '',
+        // 👉 요미가나(읽는 법) - 직접 입력한 항목에만 있을 수 있음. 한자↔히라가나 검색 매칭용
+        reading: item.reading || '',
         // 🇰🇷 번역 전 원문(한국어) - main.js가 채워준 orig_* 필드에서 가져옴
         orig: {
             title: item.orig_title || '',
@@ -161,9 +163,21 @@ const ICON_CALENDAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="non
 const ICON_PIN = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><path d="M12 21s7-6.5 7-11.5A7 7 0 0 0 5 9.5C5 14.5 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/></svg>';
 const ICON_DOT = '<svg viewBox="0 0 8 8" width="8" height="8" fill="currentColor" style="margin-top:6px; flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>';
 const ICON_BOOKMARK = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
+const ICON_STAR = '<svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2.5l2.95 6.28 6.55.83-4.9 4.7 1.3 6.69L12 17.77l-5.9 3.23 1.3-6.69-4.9-4.7 6.55-.83z" fill="#FFB300" stroke="#8a5700" stroke-width="1"/></svg>';
 
 function looseKey(s) {
     return (s || '').replace(/\s|\(|\)|[0-9]/g, '').toLowerCase();
+}
+
+// 가타카나를 히라가나로 통일해서, 검색할 때 "とうきょう"랑 "トウキョウ"가 같은 결과를 내게 함
+// (유니코드에서 히라가나/가타카나는 정확히 같은 순서라, 코드값에 고정된 차이(0x60)만 빼주면 변환됨)
+function katakanaToHiragana(s) {
+    return (s || '').replace(/[\u30A1-\u30F6]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
+// 검색용으로 텍스트를 정규화: 소문자 + 가타카나→히라가나 통일
+function normalizeForSearch(s) {
+    return katakanaToHiragana((s || '').toLowerCase());
 }
 
 // 진행상태 계산: ongoing(진행중) / upcoming(예정) / ended(종료) / unknown(날짜없음)
@@ -248,10 +262,11 @@ function getFilteredList() {
     let list = allFestivalsCache;
     if (homeTagFilter) list = list.filter(f => f.category === homeTagFilter);
     if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+        const q = normalizeForSearch(searchQuery);
         list = list.filter(f =>
-            (f.title || '').toLowerCase().includes(q) ||
-            (f.address || '').toLowerCase().includes(q)
+            normalizeForSearch(f.title).includes(q) ||
+            normalizeForSearch(f.address).includes(q) ||
+            normalizeForSearch(f.reading).includes(q)
         );
     }
     return list;
@@ -636,6 +651,21 @@ function dateKeyOf(year, month, day) {
 }
 
 const CAL_MAX_LANES = 3;
+let calendarBookmarkOnly = false;
+
+document.getElementById('cal-filter-all').addEventListener('click', () => {
+    calendarBookmarkOnly = false;
+    document.getElementById('cal-filter-all').classList.add('active');
+    document.getElementById('cal-filter-bookmark').classList.remove('active');
+    renderCalendar();
+});
+document.getElementById('cal-filter-bookmark').addEventListener('click', () => {
+    calendarBookmarkOnly = true;
+    document.getElementById('cal-filter-bookmark').classList.add('active');
+    document.getElementById('cal-filter-all').classList.remove('active');
+    renderCalendar();
+});
+
 const CAL_BAR_HEIGHT = 18;
 const CAL_BAR_GAP = 3;
 const CAL_TOP_OFFSET = 38; // 셀 안쪽 여백(10px) + 날짜 숫자 높이/여백까지 포함해서 안 겹치게
@@ -681,7 +711,12 @@ function renderEventOverlayBars(year, month, lastDay) {
     const monthEnd = new Date(year, month, lastDay);
 
     // 이번 달에 걸쳐있는 축제만 추출하고, 이번 달 범위로 날짜를 잘라냄
-    const items = allFestivalsCache.map(f => {
+    // "북마크만 보기" 모드면 북마크한 축제만 대상으로 삼음 (경쟁이 줄어서 겹쳐도 다 보일 확률이 높아짐)
+    const sourceList = calendarBookmarkOnly
+        ? allFestivalsCache.filter(f => bookmarkedKeys.has(f.key))
+        : allFestivalsCache;
+
+    const items = sourceList.map(f => {
         const start = parseIso(f.startDate);
         if (!start) return null;
         const end = parseIso(f.endDate) || start;
@@ -696,6 +731,9 @@ function renderEventOverlayBars(year, month, lastDay) {
     }).filter(Boolean);
 
     // 겹치는 축제끼리 서로 다른 "레인(세로 줄)"에 배정 (구글 캘린더식 interval scheduling)
+    // ⚠️ 반드시 날짜순으로 처리해야 함 - 북마크를 먼저 배정하려고 순서를 바꾸면
+    // "늦게 시작하는 북마크 축제"가 앞쪽 날짜들의 레인까지 잘못 차지한 것처럼 계산되는 버그가 생김.
+    // 그래서 북마크 우선순위는 여기서 강제하지 않고, "★+N件" 힌트 + "북마크만 보기" 토글로 대신함.
     items.sort((a, b) => a.clipStart - b.clipStart || (b.clipEnd - b.clipStart) - (a.clipEnd - a.clipStart));
     const laneEndDates = [];
     items.forEach(it => {
@@ -706,14 +744,21 @@ function renderEventOverlayBars(year, month, lastDay) {
     });
 
     // 레인이 너무 많아지는 날은 막대 대신 "+N"으로만 표시
-    const overflowCountByDay = {};
+    // 북마크 숨은 개수랑 나머지 숨은 개수를 따로 세서, "★+N件"이 둘을 헷갈리게 섞지 않게 함
+    const overflowBookmarkCountByDay = {};
+    const overflowOtherCountByDay = {};
     const segments = [];
 
     items.forEach(it => {
         if (it.lane >= CAL_MAX_LANES) {
+            const isBookmarked = bookmarkedKeys.has(it.fest.key);
             const d = new Date(it.clipStart);
             while (d <= it.clipEnd) {
-                overflowCountByDay[d.getDate()] = (overflowCountByDay[d.getDate()] || 0) + 1;
+                if (isBookmarked) {
+                    overflowBookmarkCountByDay[d.getDate()] = (overflowBookmarkCountByDay[d.getDate()] || 0) + 1;
+                } else {
+                    overflowOtherCountByDay[d.getDate()] = (overflowOtherCountByDay[d.getDate()] || 0) + 1;
+                }
                 d.setDate(d.getDate() + 1);
             }
             return;
@@ -766,6 +811,7 @@ function renderEventOverlayBars(year, month, lastDay) {
         bar.style.pointerEvents = 'auto';
         bar.style.cursor = 'pointer';
         bar.textContent = seg.isTrueStart ? (isBookmarked ? `★ ${seg.fest.title}` : seg.fest.title) : '';
+        bar.title = `${isBookmarked ? '★ ' : ''}${seg.fest.title}${seg.fest.startDate ? ` (${seg.fest.startDate.replace(/-/g, '.')}${seg.fest.endDate && seg.fest.endDate !== seg.fest.startDate ? ' ~ ' + seg.fest.endDate.replace(/-/g, '.') : ''})` : ''}`;
         bar.onclick = (e) => {
             e.stopPropagation();
             showFestivalDetailByKey(seg.fest.key);
@@ -773,24 +819,54 @@ function renderEventOverlayBars(year, month, lastDay) {
         overlay.appendChild(bar);
     });
 
-    Object.keys(overflowCountByDay).forEach(dayStr => {
+    const overflowDays = new Set([...Object.keys(overflowBookmarkCountByDay), ...Object.keys(overflowOtherCountByDay)]);
+    overflowDays.forEach(dayStr => {
         const day = parseInt(dayStr, 10);
         const cell = calendarBody.querySelector(`.calendar-cell[data-day="${day}"]`);
         if (!cell) return;
         const rect = cell.getBoundingClientRect();
 
+        const bmCount = overflowBookmarkCountByDay[day] || 0;
+        const otherCount = overflowOtherCountByDay[day] || 0;
+
+        // 북마크 숨은 개수(★N)랑 나머지 숨은 개수(+N)를 명확히 구분해서 표시
+        let label = '';
+        if (bmCount > 0 && otherCount > 0) label = `★${bmCount} +${otherCount}`;
+        else if (bmCount > 0) label = `★${bmCount}件`;
+        else label = `+${otherCount}件`;
+
         const moreEl = document.createElement('div');
-        moreEl.className = 'calendar-event-more';
+        moreEl.className = `calendar-event-more ${bmCount > 0 ? 'has-bookmark' : ''}`;
         moreEl.style.position = 'absolute';
         moreEl.style.left = `${rect.left - bodyRect.left + 4}px`;
         moreEl.style.top = `${rect.top - bodyRect.top + CAL_TOP_OFFSET + CAL_MAX_LANES * (CAL_BAR_HEIGHT + CAL_BAR_GAP)}px`;
-        moreEl.textContent = `+${overflowCountByDay[day]}件`;
+        moreEl.textContent = label;
+        moreEl.style.cursor = 'pointer';
+        moreEl.style.pointerEvents = 'auto';
+        if (bmCount > 0 && otherCount > 0) {
+            moreEl.title = `表示しきれていないイベント: ブックマーク${bmCount}件、その他${otherCount}件（クリックで全件表示）`;
+        } else if (bmCount > 0) {
+            moreEl.title = `表示しきれていないブックマーク${bmCount}件があります（クリックで全件表示）`;
+        } else {
+            moreEl.title = `他に${otherCount}件のイベントがあります（クリックで全件表示）`;
+        }
+        moreEl.onclick = (e) => {
+            e.stopPropagation();
+            showDayDetail(dateKeyOf(year, month, day));
+        };
         overlay.appendChild(moreEl);
     });
 }
 
 function showDayDetail(dateKey) {
     const m = dateKey.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const day = +m[3];
+
+    // 클릭한 날짜 칸에 선택 표시(테두리) - 어느 날짜를 봤는지 한눈에 보이게
+    document.querySelectorAll('.calendar-cell.selected').forEach(c => c.classList.remove('selected'));
+    const cell = document.querySelector(`.calendar-cell[data-day="${day}"]`);
+    if (cell) cell.classList.add('selected');
+
     const events = getEventsForDate(new Date(+m[1], +m[2] - 1, +m[3]));
     const container = document.getElementById('calendar-day-detail');
     if (events.length === 0) {
@@ -799,8 +875,10 @@ function showDayDetail(dateKey) {
     }
     container.innerHTML = `
         <div style="font-weight:700; margin-bottom:8px;">${dateKey} のイベント</div>
-        ${events.map(f => `<div class="day-detail-item" onclick="showFestivalDetailByKey('${f.key}')">${bookmarkedKeys.has(f.key) ? '⭐ ' : ''}${f.title}</div>`).join('')}
+        ${events.map(f => `<div class="day-detail-item" onclick="showFestivalDetailByKey('${f.key}')">${bookmarkedKeys.has(f.key) ? ICON_STAR : ''}${f.title}</div>`).join('')}
     `;
+    // 리스트가 화면 아래로 잘려서 스크롤해야만 보이는 문제 방지 - 자동으로 스크롤해서 보여줌
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 document.getElementById('btn-prev-month').addEventListener('click', () => {
