@@ -1,6 +1,6 @@
 {
   "name": "busan-navi",
-  "version": "1.0.1",
+  "version": "1.1.2",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,8 @@
     "firebase-admin": "^12.0.0"
   },
   "dependencies": {
-    "firebase": "^10.0.0"
+    "firebase": "^10.0.0",
+    "kuromoji": "^0.1.2"
   },
   "build": {
     "appId": "com.busannavi.app",
@@ -21,6 +22,7 @@
       "**/*",
       "!serviceAccountKey.json",
       "!migrate-to-firestore.js",
+      "!snapshot-to-firestore.js",
       "!*.md",
       "!부산축제_7_9월정리.txt",
       "!.gitignore",
@@ -32,9 +34,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "perMachine": false
     }
   }
 }

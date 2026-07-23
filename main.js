@@ -23,25 +23,78 @@ try {
 async function fetchFirestoreFestivals() {
   if (!firestoreDb) return null;
   const { collection, getDocs } = require('firebase/firestore');
+
   const snapshot = await getDocs(collection(firestoreDb, 'festivals'));
   return snapshot.docs.map((doc) => doc.data());
+}
+
+// hub API 자체가 안 될 때를 위한 최후의 대비책 - 가끔 snapshot-to-firestore.js를 돌려서
+// 저장해둔 hub 데이터의 스냅샷(사본)을 읽어옴. 로컬 캐시(readCache)도 없을 때만 씀.
+async function fetchFirestoreHubSnapshot() {
+  if (!firestoreDb) return null;
+  const { collection, getDocs } = require('firebase/firestore');
+
+  const snapshot = await getDocs(collection(firestoreDb, 'hub_snapshot'));
+  return snapshot.docs.map((doc) => doc.data());
+}
+
+// --- 📖 kuromoji (한자 제목의 읽는 법을 자동으로 추론 - "한자↔요미가나" 검색용) ---
+// ⚠️ 사전에 없는 고유명사(축제명 등)는 정확도가 떨어질 수 있음. 실패해도 검색 자체는
+// (가타카나↔히라가나 통일 기능으로) 계속 작동하니 여기서 실패해도 앱은 안 죽음.
+let kuromojiTokenizer = null;
+let kuromojiInitPromise = null;
+
+function initKuromoji() {
+  if (kuromojiInitPromise) return kuromojiInitPromise;
+  kuromojiInitPromise = new Promise((resolve) => {
+    try {
+      const kuromoji = require('kuromoji');
+      const dicPath = path.join(__dirname, 'node_modules', 'kuromoji', 'dict');
+      kuromoji.builder({ dicPath }).build((err, tokenizer) => {
+        if (err) {
+          console.log('[main] kuromoji 사전 로드 실패 - 한자→요미가나 자동변환 없이 진행:', err.message);
+          resolve(null);
+          return;
+        }
+        kuromojiTokenizer = tokenizer;
+        console.log('[main] kuromoji 사전 로드 성공');
+        resolve(tokenizer);
+      });
+    } catch (e) {
+      console.log('[main] kuromoji 모듈 로드 실패 - 한자→요미가나 자동변환 없이 진행:', e.message);
+      resolve(null);
+    }
+  });
+  return kuromojiInitPromise;
+}
+
+// 일본어(한자 섞인) 텍스트를 넣으면 읽는 법(가타카나)을 이어붙여서 돌려줌.
+// 사전에 없는 단어는 형태소 분석이 부정확할 수 있어서, 참고용 검색 보조 데이터로만 사용함.
+function getReading(text) {
+  if (!kuromojiTokenizer || !text) return '';
+  try {
+    const tokens = kuromojiTokenizer.tokenize(text);
+    return tokens.map((t) => t.reading || t.surface_form).join('');
+  } catch (e) {
+    return '';
+  }
 }
 
 // 매번 74건씩 다시 조회하면 느리니까, 결과를 파일로 저장해뒀다가
 // 일정 시간 안에 다시 열면 그걸 바로 씀 (3시간 지나면 다시 살아있는 데이터로 갱신)
 // CACHE_SCHEMA_VERSION: 코드가 바뀌어서 캐시 구조/내용이 달라질 때마다 이 숫자를 올리면
 // 예전 캐시는 자동으로 무시되고 새로 받아옴
-const CACHE_SCHEMA_VERSION = 6; // orig_*(원문) 필드 누락된 예전 캐시 무효화
-const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+const CACHE_SCHEMA_VERSION = 8; // 캐시가 kuromoji 반영 전 상태로 남아있을 수 있어서 한 번 더 무효화
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // DeepL 사용량(평생 한도) 아끼려고 3시간→24시간으로 늘림
 function getCachePath() {
   return path.join(app.getPath('userData'), 'hub-cache.json');
 }
-function readCache() {
+function readCache(ignoreTTL = false) {
   try {
     const raw = fs.readFileSync(getCachePath(), 'utf-8');
     const cache = JSON.parse(raw);
     if (cache.schemaVersion !== CACHE_SCHEMA_VERSION) return null; // 예전 버전 캐시는 버림
-    if (Date.now() - cache.savedAt < CACHE_TTL_MS) return cache.hubItems;
+    if (ignoreTTL || Date.now() - cache.savedAt < CACHE_TTL_MS) return cache.hubItems;
   } catch (e) {
     // 캐시 없거나 깨졌으면 그냥 새로 받아옴
   }
@@ -53,6 +106,36 @@ function writeCache(hubItems) {
       schemaVersion: CACHE_SCHEMA_VERSION,
       savedAt: Date.now(),
       hubItems
+    }));
+  } catch (e) {
+    // 저장 실패해도 앱 동작엔 지장 없음
+  }
+}
+
+// 직접추가(Firestore/extraFestivals.js) 항목은 hub보다 훨씬 뜸하게 바뀌니까,
+// 훨씬 긴 캐시(24시간)를 따로 둬서 앱 켤 때마다 매번 재번역하지 않게 함
+// (이게 없으면 실행할 때마다 DeepL 글자 수를 계속 소모하게 됨)
+const EXTRA_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+function getExtraCachePath() {
+  return path.join(app.getPath('userData'), 'extra-cache.json');
+}
+function readExtraCache() {
+  try {
+    const raw = fs.readFileSync(getExtraCachePath(), 'utf-8');
+    const cache = JSON.parse(raw);
+    if (cache.schemaVersion !== CACHE_SCHEMA_VERSION) return null;
+    if (Date.now() - cache.savedAt < EXTRA_CACHE_TTL_MS) return cache.extraItems;
+  } catch (e) {
+    // 캐시 없거나 깨졌으면 그냥 새로 처리함
+  }
+  return null;
+}
+function writeExtraCache(extraItems) {
+  try {
+    fs.writeFileSync(getExtraCachePath(), JSON.stringify({
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      savedAt: Date.now(),
+      extraItems
     }));
   } catch (e) {
     // 저장 실패해도 앱 동작엔 지장 없음
@@ -318,6 +401,7 @@ function deeplRequest(hostname, texts) {
 // 무료 키는 보통 api-free.deepl.com + ":fx" 접미사를 쓰지만, 계정에 따라
 // api.deepl.com 이 맞는 경우도 있어서 첫 실패 시 자동으로 다른 쪽도 시도해봄.
 let deeplHostOverride = null;
+let deeplQuotaExceeded = false; // 한 번 한도 초과가 확인되면, 이번 세션 동안은 계속 재시도하지 않고 바로 구글로 감
 async function deeplTranslateBatch(texts) {
   const hostsToTry = deeplHostOverride
     ? [deeplHostOverride]
@@ -333,7 +417,9 @@ async function deeplTranslateBatch(texts) {
     }
     lastResult = result;
   }
-  throw new Error(`DeepL 인증/요청 실패 (status=${lastResult?.status}): ${lastResult?.body?.slice(0, 200)}`);
+  const err = new Error(`DeepL 인증/요청 실패 (status=${lastResult?.status}): ${lastResult?.body?.slice(0, 200)}`);
+  if (lastResult?.status === 456) err.isQuotaExceeded = true; // DeepL의 "사용량 한도 초과" 전용 상태코드
+  throw err;
 }
 
 async function googleTranslateOne(text) {
@@ -383,8 +469,13 @@ async function translateItemsToJapanese(items, onProgress, fields = HUB_TRANSLAT
   const totalTexts = flatTexts.length;
   let doneTexts = 0;
 
-  if (useDeepL) {
+  // 이번 세션에서 이미 한도 초과가 확인됐으면 아예 DeepL을 다시 시도하지 않고 바로 구글로 감
+  const tryDeepL = useDeepL && !deeplQuotaExceeded;
+
+  if (tryDeepL) {
     const CHUNK = 50;
+    let remainingStartIdx = flatTexts.length; // 한도초과로 중간에 멈추면, 여기부터는 구글로 처리할 몫
+
     for (let i = 0; i < flatTexts.length; i += CHUNK) {
       const chunk = flatTexts.slice(i, i + CHUNK);
       const chunkMap = indexMap.slice(i, i + CHUNK);
@@ -397,15 +488,46 @@ async function translateItemsToJapanese(items, onProgress, fields = HUB_TRANSLAT
           const { itemIdx, field } = chunkMap[j];
           results[itemIdx][field] = t.text;
         });
+        doneTexts += chunk.length;
+        if (onProgress) onProgress(doneTexts, totalTexts);
       } catch (e) {
+        if (e.isQuotaExceeded) {
+          // DeepL 한도 초과 - 여기서 멈추고, 이 청크부터 끝까지는 구글 번역으로 넘김
+          console.log('[main] DeepL 사용량 한도 초과 확인됨 - 나머지는 구글 번역(비공식)으로 자동 전환');
+          deeplQuotaExceeded = true;
+          remainingStartIdx = i;
+          break;
+        }
         console.log('[main] DeepL 번역 실패, 이 묶음은 원문 유지:', e.message);
         failCount += chunk.length;
+        doneTexts += chunk.length;
+        if (onProgress) onProgress(doneTexts, totalTexts);
       }
-      doneTexts += chunk.length;
-      if (onProgress) onProgress(doneTexts, totalTexts);
+    }
+
+    // 한도 초과로 못 끝낸 나머지 텍스트를 구글 번역으로 이어서 처리
+    if (deeplQuotaExceeded && remainingStartIdx < flatTexts.length) {
+      const remainingIndices = [];
+      for (let i = remainingStartIdx; i < flatTexts.length; i++) remainingIndices.push(i);
+      const concurrency = 8;
+      const queue = [...remainingIndices];
+      async function worker() {
+        while (queue.length > 0) {
+          const i = queue.shift();
+          const { itemIdx, field } = indexMap[i];
+          // eslint-disable-next-line no-await-in-loop
+          const translated = await googleTranslateOne(flatTexts[i]);
+          if (translated === flatTexts[i]) failCount += 1;
+          results[itemIdx][field] = translated;
+          doneTexts += 1;
+          if (onProgress) onProgress(doneTexts, totalTexts);
+        }
+      }
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
     }
   } else {
-    console.log('[main] DEEPL_API_KEY 없음 - 구글 번역(비공식)으로 대체');
+    if (deeplQuotaExceeded) console.log('[main] DeepL 한도 초과 상태(이번 세션) - 구글 번역(비공식)으로 진행');
+    else console.log('[main] DEEPL_API_KEY 없음 - 구글 번역(비공식)으로 대체');
     const concurrency = 8;
     const queue = [...Array(flatTexts.length).keys()];
     async function worker() {
@@ -423,7 +545,7 @@ async function translateItemsToJapanese(items, onProgress, fields = HUB_TRANSLAT
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
   }
 
-  console.log(`[main] 자동번역 완료: 텍스트 ${flatTexts.length}개 중 실패(원문유지) ${failCount}개 (엔진: ${useDeepL ? 'DeepL' : 'Google(비공식)'})`);
+  console.log(`[main] 자동번역 완료: 텍스트 ${flatTexts.length}개 중 실패(원문유지) ${failCount}개 (엔진: ${tryDeepL && !deeplQuotaExceeded ? 'DeepL' : (tryDeepL ? 'DeepL+Google 혼합' : 'Google(비공식)')})`);
   const allFailed = failCount > 0 && failCount === flatTexts.length;
   return { items: results, allFailed };
 }
@@ -468,6 +590,10 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     event.sender.send('fetch-progress', { stage, current, total });
   };
 
+  // kuromoji 사전 로딩(1~3초 걸림)을 여기서 미리 백그라운드로 시작해둠 -
+  // 뒤에서 hub 데이터 가져오는 동안(훨씬 오래 걸림) 같이 진행되니까, 실제 체감 지연은 거의 없어짐
+  initKuromoji();
+
   const result = {
     hubItems: [],
     extra: extraFestivals,
@@ -475,8 +601,14 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     debug: ''
   };
 
-  // 직접추가 파일은 개수가 적어서(캐시 없이) 매번 바로 번역함 - 원문(한국어)도 같이 보관해서
-  // 상세페이지 "원문 보기" 토글이 이 항목들에도 똑같이 작동하게 함
+  // 직접추가 항목도 원문(한국어)을 같이 보관해서, 상세페이지 "원문 보기" 토글이 작동하게 함.
+  // 직접추가 항목은 24시간 캐시를 먼저 확인 - 있으면 Firestore 조회/번역 자체를 건너뛰어서
+  // DeepL 글자 수 소모를 크게 줄임 (예전엔 앱 켤 때마다 매번 재번역했었음)
+  const cachedExtra = readExtraCache();
+  if (cachedExtra) {
+    result.extra = cachedExtra;
+    console.log(`[main] 직접추가 항목 캐시 사용 (${cachedExtra.length}건) - 24시간 지나야 재번역함`);
+  } else {
   try {
     // Firestore에서 받아오는 걸 우선하고, 실패하거나(연결 안 됨) 비어있으면 로컬 extraFestivals.js로 대체
     let extraSource = extraFestivals;
@@ -491,9 +623,18 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     }
 
     const { items: translatedExtra } = await translateItemsToJapanese(extraSource, null, SIMPLE_TRANSLATABLE_FIELDS);
+
+    // 직접 입력한 reading이 있으면 그걸 우선 존중하고, 없는 항목만 자동 생성으로 보완
+    await initKuromoji();
+    translatedExtra.forEach((item) => {
+      if (!item.reading) item.reading = getReading(item.title);
+    });
+
     result.extra = translatedExtra;
+    writeExtraCache(translatedExtra);
   } catch (e) {
     result.errors.push(`직접추가 번역 실패(원문 유지): ${e.message}`);
+  }
   }
 
   const cached = readCache();
@@ -512,6 +653,18 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
     const { items: translatedItems, allFailed } = await translateItemsToJapanese(items, (done, total) => {
       sendProgress('translate', done, total);
     });
+
+    // 번역된 일본어 제목 기준으로 요미가나(읽는 법) 자동 생성 - 한자↔히라가나 검색용
+    await initKuromoji();
+    translatedItems.forEach((item) => {
+      item.reading = getReading(item.title);
+    });
+    const readingSuccessCount = translatedItems.filter((it) => it.reading).length;
+    console.log(`[main] 요미가나 자동생성: ${readingSuccessCount}/${translatedItems.length}건 성공`);
+    if (translatedItems[0]) {
+      console.log(`[main] 샘플 - 제목: "${translatedItems[0].title}" → 읽기: "${translatedItems[0].reading}"`);
+    }
+
     result.hubItems = translatedItems;
     result.debug = debug + (sampleRaw ? ` | 샘플: ${sampleRaw}` : '') + (allFailed ? ' | ⚠️ 번역 전부 실패(원문 표시중)' : '');
     if (!allFailed) {
@@ -520,6 +673,31 @@ ipcMain.handle('fetch-all-festivals', async (event) => {
       console.log('[main] 번역이 전부 실패해서 이번 결과는 캐시에 저장하지 않음 (다음 실행 때 재시도)');
     }
   } catch (e) {
+    console.log('[main] hub 검색 실패, 대체 데이터를 찾습니다:', e.message);
+
+    // 1순위: 이 컴퓨터에 저장된 로컬 캐시(만료됐어도 상관없이)
+    const staleCache = readCache(true);
+    if (staleCache) {
+      result.hubItems = staleCache;
+      result.debug = `⚠️ 최신 데이터를 받아오지 못해서, 이전에 저장된 데이터를 대신 보여드립니다. (${e.message})`;
+      console.log(`[main] hub 실패 → 로컬 캐시(만료 무시)로 대체, ${staleCache.length}건`);
+      return result;
+    }
+
+    // 2순위: Firestore에 미리 저장해둔 스냅샷(snapshot-to-firestore.js로 가끔 갱신)
+    try {
+      const snap = await fetchFirestoreHubSnapshot();
+      if (snap && snap.length > 0) {
+        result.hubItems = snap;
+        result.debug = `⚠️ 최신 데이터를 받아오지 못해서, 백업 스냅샷 데이터를 대신 보여드립니다. (${e.message})`;
+        console.log(`[main] hub 실패, 로컬 캐시도 없음 → Firestore 스냅샷으로 대체, ${snap.length}건`);
+        return result;
+      }
+    } catch (e2) {
+      console.log('[main] 스냅샷 조회도 실패:', e2.message);
+    }
+
+    // 3순위: 아무 대체 데이터도 없으면 그제서야 에러로 표시
     result.errors.push(`hub 검색 실패: ${e.message}`);
   }
 

@@ -165,7 +165,7 @@ header h1 {
     margin-top: 2px;
 }
 
-/* 📅 캘린더 전용 CSS (지난번에 빼먹은 부분!) */
+/* 캘린더 전용 CSS (지난번에 빼먹은 부분!) */
 .calendar-header {
     display: flex;
     justify-content: space-between;
@@ -325,7 +325,7 @@ header h1 {
     background: rgba(0, 122, 255, 0.08);
 }
 
-/* 🪟 축제 상세정보 화면 (모달 대신 별도 화면으로 전환) */
+/*  축제 상세정보 화면 (모달 대신 별도 화면으로 전환) */
 .card {
     cursor: pointer;
     position: relative;
@@ -430,6 +430,8 @@ header h1 {
 
 .detail-row {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     font-size: 15px;
     color: #333;
@@ -440,6 +442,24 @@ header h1 {
 .detail-row .label {
     flex-shrink: 0;
     width: 22px;
+}
+
+.detail-map-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(0, 122, 255, 0.1);
+    color: var(--primary-blue);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.detail-map-btn:hover {
+    background: rgba(0, 122, 255, 0.2);
 }
 
 .detail-summary {
@@ -484,7 +504,7 @@ header h1 {
     font-weight: 700;
 }
 
-/* --- 🍔 사이드바 접기/펴기 --- */
+/* --- 사이드바 접기/펴기 --- */
 .sidebar-top {
     display: flex;
     align-items: center;
@@ -551,7 +571,7 @@ header h1 {
     align-items: center;
 }
 
-/* --- 検索バー --- */
+/* --- 검색바 --- */
 .search-bar-wrap {
     flex: 0 0 auto;
     margin-bottom: 16px;
@@ -606,7 +626,7 @@ header h1 {
     color: var(--text-muted);
 }
 
-/* --- 🏷️ タグフィルター --- */
+/* --- 탭필터 --- */
 .tag-filter-wrap {
     flex: 0 0 auto;
     display: flex;
@@ -636,7 +656,7 @@ header h1 {
     border-color: var(--primary-blue);
 }
 
-/* --- ⭐ ブックマーク --- */
+/* --- 북마크 --- */
 .bookmark-btn {
     position: absolute;
     top: 8px;
@@ -724,7 +744,7 @@ header h1 {
     padding-right: 18px;
 }
 
-/* ---  캘린터 일정 --- */
+/* --- 캘린더 일정 --- */
 .calendar-cell {
     position: relative;
     cursor: default;
@@ -750,7 +770,7 @@ header h1 {
     overflow: hidden;
     text-overflow: ellipsis;
     border-radius: 0;
-    box-shadow: 0 1px 4px rgba(52, 81, 127, 0.632);
+    box-shadow: 0 1px 4px rgba(52, 81, 127, 0.4);
 }
 .calendar-event-bar.bar-start {
     border-top-left-radius: 6px;
@@ -764,7 +784,7 @@ header h1 {
     background: linear-gradient(135deg, #E3A94A, #C9860B);
     color: #3d2400;
     font-weight: 800;
-    box-shadow: 0 1px 5px rgba(201, 134, 11, 0.733);
+    box-shadow: 0 1px 5px rgba(201, 134, 11, 0.5);
 }
 .calendar-event-more {
     font-size: 10px;
@@ -799,7 +819,7 @@ header h1 {
     color: var(--primary-blue);
 }
 
-/* ---  로딩 화면 --- */
+/* --- 로딩 화면 --- */
 .loading-box {
     display: flex;
     flex-direction: column;

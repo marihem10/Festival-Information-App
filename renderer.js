@@ -67,6 +67,17 @@ function extractUrl(text) {
     return m ? m[0] : '';
 }
 
+// 지도 링크 생성: 좌표가 있으면 좌표 우선(번역 오역 위험 없음), 없으면 원문(한국어) 주소로 검색
+// (번역된 일본어 주소로 검색하면 오역 때문에 엉뚱한 곳이 나올 위험이 있어서 원문을 우선함)
+// 네이버지도로 연결 - 부산 같은 국내 위치는 구글맵보다 네이버지도가 훨씬 정확함(구글맵은
+// 한국 내 지도 데이터가 부실한 경우가 많음). 번역된 일본어 주소 대신 원문(한국어) 주소로
+// 검색해서, 오역 때문에 엉뚱한 곳이 나오는 걸 방지함.
+function getMapUrl(fest) {
+    const addr = (fest.orig && fest.orig.address) || fest.address;
+    if (!addr || addr === '場所未定') return '';
+    return `https://map.naver.com/v5/search/${encodeURIComponent(addr)}`;
+}
+
 function stripHtml(s) {
     return (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -94,6 +105,11 @@ function normalizeHubItem(item) {
         progressType: stripHtml(item.progressType),
         spendTime: stripHtml(item.spendTime),
         useFee: stripHtml(item.useFee),
+        // 위/경도 좌표 - 있으면 지도 연결에 이걸 우선 사용(번역 오역 위험이 없음)
+        lat: item.lat || item.mapy || '',
+        lng: item.lng || item.mapx || '',
+        // kuromoji로 자동 생성된 요미가나(읽는 법) - 한자↔히라가나 검색용 (고유명사는 부정확할 수 있음)
+        reading: item.reading || '',
         // 🇰🇷 번역 전 원문(한국어) - 상세페이지 "원문 보기" 토글용. hub 항목에만 있음(직접추가/큐레이션은 이미 일본어라 없음).
         orig: {
             title: item.orig_title || '',
@@ -576,9 +592,17 @@ function renderDetailContent() {
         : '';
 
     // 값이 있는 항목만 표로 보여줌 (빈 줄 안 생기게)
+    // ⚠️ 지도 이동 기능 - 오류(엉뚱한 주소 검색 등)가 많아서 임시로 꺼둠. 나중에 다시 켜려면
+    // 아래 두 줄 주석 풀고, addressRowHtml을 mapUrl 있는 버전으로 되돌리면 됨.
+    // const mapUrl = getMapUrl(fest);
+    const mapUrl = '';
+    const addressText = d.address || L.noPlace;
+    const addressRowHtml = mapUrl
+        ? `<div class="detail-row"><span class="label">${ICON_PIN}</span><span>${addressText}</span><a href="${mapUrl}" target="_blank" rel="noopener" class="detail-map-btn">地図で見る</a></div>`
+        : `<div class="detail-row"><span class="label">${ICON_PIN}</span><span>${addressText}</span></div>`;
+
     const infoRows = [
         [ICON_CALENDAR, dateStr],
-        [ICON_PIN, d.address || L.noPlace],
         [ICON_DOT, d.category],
         [ICON_DOT, d.playTime && `${L.playTime}: ${d.playTime}`],
         [ICON_DOT, d.sponsor1 && `${L.sponsor1}: ${d.sponsor1}${fest.sponsor1Tel ? ' (' + fest.sponsor1Tel + ')' : ''}`],
@@ -591,7 +615,7 @@ function renderDetailContent() {
         [ICON_DOT, d.placeInfo && `${L.placeInfo}: ${d.placeInfo}`]
     ].filter(([, text]) => Boolean(text));
 
-    const rowsHtml = infoRows.map(([icon, text]) =>
+    const rowsHtml = addressRowHtml + infoRows.map(([icon, text]) =>
         `<div class="detail-row"><span class="label">${icon}</span><span>${text}</span></div>`
     ).join('');
 
