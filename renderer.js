@@ -487,8 +487,8 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
         const dateStr = formatDateRange(fest);
 
         const imageTag = fest.image
-            ? `<img src="${fest.image}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {style:'width:calc(100% + 32px); height:150px; background:rgba(0,0,0,0.05); border-radius:18px 18px 0 0; margin: -16px -16px 12px -16px; display:flex; align-items:center; justify-content:center; color:#515154; font-weight:bold; font-size:12px;', innerText:'No Image'}))" style="width:calc(100% + 32px); height:150px; object-fit:contain; background:rgba(0,0,0,0.04); border-radius:18px 18px 0 0; margin: -16px -16px 12px -16px; display:block;">`
-            : `<div style="width:calc(100% + 32px); height:150px; background:rgba(0,0,0,0.05); border-radius:18px 18px 0 0; margin: -16px -16px 12px -16px; display:flex; align-items:center; justify-content:center; color:#515154; font-weight:bold; font-size:12px;">No Image</div>`;
+            ? `<img src="${fest.image}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'card-thumb card-thumb-placeholder', innerText:'No Image'}))" class="card-thumb">`
+            : `<div class="card-thumb card-thumb-placeholder">No Image</div>`;
 
         const badgeClass = fest.status?.key === 'ongoing' ? 'ongoing' : fest.status?.key === 'ended' ? 'ended' : 'upcoming';
         const badgeHtml = fest.status?.label
@@ -504,14 +504,55 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
                 ${bookmarkBtnHtml}
                 ${imageTag}
                 <h3>${title}</h3>
-                ${dateStr ? `<p style="font-size: 12px; color: #515154; margin:4px 0; display:flex; align-items:center; min-width:0;">${ICON_CALENDAR}<span style="flex:1 1 auto; width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">${dateStr}</span></p>` : ''}
+                <p style="font-size: 12px; color: #515154; margin:4px 0; display:flex; align-items:center; min-width:0;">${ICON_CALENDAR}<span style="flex:1 1 auto; width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">${dateStr || '日程未定'}</span></p>
                 <p style="font-size: 12px; color: #515154; margin: 4px 0 10px 0; display:flex; align-items:center; min-width:0;" title="${location}">${ICON_PIN}<span style="flex:1 1 auto; width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">${location}</span></p>
                 <span class="tag">${fest.category || 'フェスティバル・イベント'}</span>
             </div>
         `;
         grid.insertAdjacentHTML('beforeend', cardHTML);
     });
+
+    adjustCardImageHeights(gridId);
 }
+
+// 카드 이미지 높이를 "실제로 남는 공간"에 딱 맞게 계산해서 정함
+// (예전엔 vh 비율로 대충 계산해서 검색바/태그필터/페이지네이션이 차지하는 공간을
+//  못 빼고 계산하는 바람에 스크롤이 생겼음 - 이번엔 실제 픽셀을 측정해서 정확하게 맞춤)
+function adjustCardImageHeights(gridId) {
+    const wrapId = gridId === 'bookmark-grid' ? 'bookmark-grid-wrap' : 'festival-grid-wrap';
+    const wrap = document.getElementById(wrapId);
+    const grid = document.getElementById(gridId);
+    if (!wrap || !grid) return;
+
+    const cards = grid.querySelectorAll('.card');
+    if (cards.length === 0) return;
+
+    const cols = 3;
+    const rows = Math.ceil(cards.length / cols);
+    const gap = 20; // style.css의 grid gap 값과 맞춰야 함
+    const wrapHeight = wrap.clientHeight;
+    if (wrapHeight <= 0) return; // 아직 화면에 레이아웃 안 잡혔으면 건너뜀
+
+    // 카드 하나에서 "이미지 빼고 나머지(제목/날짜/장소/태그 등)"가 차지하는 높이를 실측함
+    const firstCard = cards[0];
+    const firstThumb = firstCard.querySelector('.card-thumb');
+    if (!firstThumb) return;
+    const chromeHeight = firstCard.offsetHeight - firstThumb.offsetHeight;
+
+    const perRowHeight = (wrapHeight - gap * (rows - 1)) / rows;
+    let idealThumbHeight = perRowHeight - chromeHeight;
+
+    // 너무 작아지거나(스크롤 없이 최소한의 사진 크기는 유지) 너무 커지지 않게 상하한선
+    idealThumbHeight = Math.max(100, Math.min(280, idealThumbHeight));
+
+    document.documentElement.style.setProperty('--card-thumb-height', `${Math.floor(idealThumbHeight)}px`);
+}
+
+window.addEventListener('resize', () => {
+    // 지금 홈/북마크 화면 중 뭐가 보이는지 확인해서, 그 그리드만 다시 계산
+    if (document.getElementById('view-home').style.display !== 'none') adjustCardImageHeights('festival-grid');
+    if (document.getElementById('view-bookmarks').style.display !== 'none') adjustCardImageHeights('bookmark-grid');
+});
 
 // --- 상세정보 화면 (별도 화면으로 전환) ---
 let currentDetailFest = null;
