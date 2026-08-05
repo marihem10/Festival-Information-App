@@ -27,7 +27,6 @@ tabs.forEach(tab => {
 });
 
 let lastViewBeforeDetail = 'view-home';
-
 document.getElementById('detail-back-btn').addEventListener('click', () => {
     showView(lastViewBeforeDetail);
     tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-target') === lastViewBeforeDetail));
@@ -202,7 +201,6 @@ function getStatus(fest) {
     today.setHours(0, 0, 0, 0);
     const start = parseIso(fest.startDate);
     const end = parseIso(fest.endDate) || start;
-
     if (!start) return { key: 'unknown', label: '' };
     if (start <= today && (!end || end >= today)) return { key: 'ongoing', label: '開催中' };
     if (start > today) {
@@ -238,7 +236,6 @@ async function toggleBookmark(key) {
 function refreshAfterBookmarkChange() {
     if (document.getElementById('view-home').style.display !== 'none') renderPage();
     if (document.getElementById('view-bookmarks').style.display !== 'none') renderBookmarkPage();
-
     const btn = document.getElementById('detail-bookmark-btn');
     if (btn) {
         const key = btn.getAttribute('data-key');
@@ -317,7 +314,6 @@ function updateLoadingUI({ stage, current, total }) {
     const sub = document.getElementById('loading-subtext');
     const bar = document.getElementById('loading-progress-bar');
     if (!text || !bar) return;
-
     if (stage === 'list') {
         text.textContent = 'イベント一覧を取得しています...';
         sub.textContent = '';
@@ -337,7 +333,6 @@ window.api.onFetchProgress(updateLoadingUI);
 
 async function fetchFestivals() {
     renderLoadingUI();
-
     try {
         const { hubItems, extra, errors, debug } = await window.api.fetchAllFestivals();
 
@@ -367,13 +362,11 @@ async function fetchFestivals() {
         withStatus.sort((a, b) => {
             const rankDiff = rankOf[a.status.key] - rankOf[b.status.key];
             if (rankDiff !== 0) return rankDiff;
-
             const aStart = parseIso(a.startDate);
             const bStart = parseIso(b.startDate);
             if (!aStart && !bStart) return 0;
             if (!aStart) return 1;
             if (!bStart) return -1;
-
             // 종료된 건 최근에 끝난 것부터(내림차순), 나머지는 임박한 순(오름차순)
             return a.status.key === 'ended' ? bStart - aStart : aStart - bStart;
         });
@@ -383,6 +376,10 @@ async function fetchFestivals() {
             currentPage = 1;
             renderPage();
             renderCalendar();
+
+            // 앱을 처음 켤 때는 창이 최대화되는 애니메이션이 아직 안 끝났을 수 있어서,
+            // 그 상태에서 카드 크기를 계산하면 틀어질 수 있음 - 잠시 후 한 번 더 정확하게 재계산
+            setTimeout(() => adjustCardImageHeights('festival-grid'), 300);
         } else {
             throw new Error(errors.join('\n') || '조건에 맞는 축제/행사 데이터가 0개입니다.');
         }
@@ -401,7 +398,6 @@ function renderPage() {
     const filtered = getFilteredList();
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     currentPage = Math.min(Math.max(1, currentPage), totalPages);
-
     const start = (currentPage - 1) * PAGE_SIZE;
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
@@ -432,7 +428,6 @@ function renderBookmarkPage() {
     const filtered = getFilteredBookmarkList();
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     bookmarkPage = Math.min(Math.max(1, bookmarkPage), totalPages);
-
     const start = (bookmarkPage - 1) * PAGE_SIZE;
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
@@ -533,13 +528,18 @@ function adjustCardImageHeights(gridId) {
     const wrapHeight = wrap.clientHeight;
     if (wrapHeight <= 0) return; // 아직 화면에 레이아웃 안 잡혔으면 건너뜀
 
+    // 1줄만 있어도(예: 북마크 3개 이하) "2줄 있다고 가정"하고 공간을 나눔 -
+    // 이러면 화면 크기에 따라 여전히 크기가 달라지긴 하는데, 1줄이 화면 세로 전체를
+    // 혼자 다 차지해서 비정상적으로 커지는 일은 없어짐 (최대 "2줄분의 절반"까지만 커짐)
+    const effectiveRows = Math.max(rows, 2);
+
     // 카드 하나에서 "이미지 빼고 나머지(제목/날짜/장소/태그 등)"가 차지하는 높이를 실측함
     const firstCard = cards[0];
     const firstThumb = firstCard.querySelector('.card-thumb');
     if (!firstThumb) return;
     const chromeHeight = firstCard.offsetHeight - firstThumb.offsetHeight;
 
-    const perRowHeight = (wrapHeight - gap * (rows - 1)) / rows;
+    const perRowHeight = (wrapHeight - gap * (effectiveRows - 1)) / effectiveRows;
     let idealThumbHeight = perRowHeight - chromeHeight;
 
     // 너무 작아지거나(스크롤 없이 최소한의 사진 크기는 유지) 너무 커지지 않게 상하한선
@@ -568,7 +568,6 @@ function openDetailForFest(fest) {
     currentDetailFest = fest;
     showingOriginalLang = false;
     renderDetailContent();
-
     tabs.forEach(t => t.classList.remove('active'));
     showView('view-detail');
 }
@@ -881,6 +880,7 @@ function renderEventOverlayBars(year, month, lastDay) {
             e.stopPropagation();
             showFestivalDetailByKey(seg.fest.key);
         };
+
         overlay.appendChild(bar);
     });
 
@@ -950,7 +950,6 @@ document.getElementById('btn-prev-month').addEventListener('click', () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
     renderCalendar();
 });
-
 document.getElementById('btn-next-month').addEventListener('click', () => {
     currentDate.setMonth(currentDate.getMonth() + 1);
     renderCalendar();
