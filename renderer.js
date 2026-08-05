@@ -692,7 +692,7 @@ function showFestivalDetailByKey(key) {
 }
 
 // --- 📅 달력 로직 (축제 날짜 표시 + 클릭 시 목록) ---
-let currentDate = new Date(2026, 6, 1);
+let currentDate = new Date(); // 항상 "오늘" 기준으로 시작 (예전엔 2026년 7월로 고정되어 있었음)
 
 // 특정 날짜에 "진행 중인" 축제 전부 반환 (하루짜리든 여러날짜든 다 포함)
 // ⚠️ API 쪽 데이터 품질 문제로 가끔 "연중 상시"(1년 내내) 같은 이상한 기간이 들어올 때가 있어서,
