@@ -453,9 +453,9 @@ header h1 {
 }
 
 .detail-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    align-items: start;
     gap: 12px;
     font-size: 15px;
     color: #333;
@@ -464,8 +464,11 @@ header h1 {
 }
 
 .detail-row .label {
-    flex-shrink: 0;
     width: 22px;
+}
+
+.detail-row > span:not(.label) {
+    min-width: 0;
 }
 
 .detail-map-btn {
