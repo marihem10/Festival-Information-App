@@ -66,17 +66,6 @@ function extractUrl(text) {
     return m ? m[0] : '';
 }
 
-// 지도 링크 생성: 좌표가 있으면 좌표 우선(번역 오역 위험 없음), 없으면 원문(한국어) 주소로 검색
-// (번역된 일본어 주소로 검색하면 오역 때문에 엉뚱한 곳이 나올 위험이 있어서 원문을 우선함)
-// 네이버지도로 연결 - 부산 같은 국내 위치는 구글맵보다 네이버지도가 훨씬 정확함(구글맵은
-// 한국 내 지도 데이터가 부실한 경우가 많음). 번역된 일본어 주소 대신 원문(한국어) 주소로
-// 검색해서, 오역 때문에 엉뚱한 곳이 나오는 걸 방지함.
-function getMapUrl(fest) {
-    const addr = (fest.orig && fest.orig.address) || fest.address;
-    if (!addr || addr === '場所未定') return '';
-    return `https://map.naver.com/v5/search/${encodeURIComponent(addr)}`;
-}
-
 function stripHtml(s) {
     return (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -265,14 +254,38 @@ function renderTagFilterChips(containerId, sourceList, activeFilter, onSelect) {
     });
 }
 
+// --- 🟠🟢 상태(開催中/開催予定) 토글 버튼 ---
+// 태그 필터랑 다르게, 이건 "단일 선택 목록"이 아니라 각 버튼이 독립적인 온/오프 토글임.
+// 開催中 누르면 진행중인 것만, 다시 누르면 해제(전체 보기)로 돌아감. 開催予定도 마찬가지.
+function renderStatusFilterButtons(containerId, activeFilter, onToggle) {
+    const container = document.getElementById(containerId);
+    const options = [
+        { label: '開催中', val: 'ongoing', cls: 'status-filter-ongoing' },
+        { label: '開催予定', val: 'upcoming', cls: 'status-filter-upcoming' }
+    ];
+    container.innerHTML = options.map(o => {
+        const active = activeFilter === o.val;
+        return `<span class="tag-chip ${o.cls} ${active ? 'active' : ''}" data-status="${o.val}">${o.label}</span>`;
+    }).join('');
+    container.querySelectorAll('.tag-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const val = chip.getAttribute('data-status');
+            // 이미 켜져있는 버튼을 다시 누르면 꺼짐(null=전체보기), 아니면 그 상태로 켜짐
+            onToggle(activeFilter === val ? null : val);
+        });
+    });
+}
+
 let allFestivalsCache = [];
 let currentPage = 1;
 let searchQuery = '';
 let homeTagFilter = null;
+let homeStatusFilter = null; // null(전체) / 'ongoing' / 'upcoming'
 const PAGE_SIZE = 6;
 
 function getFilteredList() {
     let list = allFestivalsCache;
+    if (homeStatusFilter) list = list.filter(f => f.status.key === homeStatusFilter);
     if (homeTagFilter) list = list.filter(f => f.category === homeTagFilter);
     if (searchQuery) {
         const q = normalizeForSearch(searchQuery);
@@ -402,6 +415,11 @@ function renderPage() {
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
     renderFestivals(pageItems, true, filtered.length, 'festival-grid', '該当するイベントが見つかりませんでした。');
+    renderStatusFilterButtons('status-filter-wrap', homeStatusFilter, (status) => {
+        homeStatusFilter = status;
+        currentPage = 1;
+        renderPage();
+    });
     renderTagFilterChips('tag-filter-wrap', allFestivalsCache, homeTagFilter, (cat) => {
         homeTagFilter = cat;
         currentPage = 1;
@@ -413,6 +431,7 @@ function renderPage() {
 // --- ⭐ ブックマーク画面 ---
 let bookmarkPage = 1;
 let bookmarkTagFilter = null;
+let bookmarkStatusFilter = null;
 
 function getBookmarkedList() {
     return allFestivalsCache.filter(f => bookmarkedKeys.has(f.key));
@@ -420,6 +439,7 @@ function getBookmarkedList() {
 
 function getFilteredBookmarkList() {
     let list = getBookmarkedList();
+    if (bookmarkStatusFilter) list = list.filter(f => f.status.key === bookmarkStatusFilter);
     if (bookmarkTagFilter) list = list.filter(f => f.category === bookmarkTagFilter);
     return list;
 }
@@ -432,6 +452,11 @@ function renderBookmarkPage() {
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
     renderFestivals(pageItems, true, filtered.length, 'bookmark-grid', 'まだブックマークしたイベントがありません。');
+    renderStatusFilterButtons('bookmark-status-filter-wrap', bookmarkStatusFilter, (status) => {
+        bookmarkStatusFilter = status;
+        bookmarkPage = 1;
+        renderBookmarkPage();
+    });
     renderTagFilterChips('bookmark-tag-filter-wrap', getBookmarkedList(), bookmarkTagFilter, (cat) => {
         bookmarkTagFilter = cat;
         bookmarkPage = 1;
@@ -464,10 +489,6 @@ function renderFestivals(festivals, clearGrid = true, totalCount = 0, gridId = '
     if (clearGrid) grid.innerHTML = '';
 
     currentPageItems = festivals;
-
-    // grid.insertAdjacentHTML('beforeend',
-    //     `<p style="grid-column: 1 / -1; font-size: 13px; color: #515154; margin: 0 0 10px 0;">総 ${totalCount}件</p>`
-    // );
 
     if (totalCount === 0) {
         grid.insertAdjacentHTML('beforeend',
@@ -632,14 +653,8 @@ function renderDetailContent() {
         : '';
 
     // 값이 있는 항목만 표로 보여줌 (빈 줄 안 생기게)
-    // ⚠️ 지도 이동 기능 - 오류(엉뚱한 주소 검색 등)가 많아서 임시로 꺼둠. 나중에 다시 켜려면
-    // 아래 두 줄 주석 풀고, addressRowHtml을 mapUrl 있는 버전으로 되돌리면 됨.
-    // const mapUrl = getMapUrl(fest);
-    const mapUrl = '';
     const addressText = d.address || L.noPlace;
-    const addressRowHtml = mapUrl
-        ? `<div class="detail-row"><span class="label">${ICON_PIN}</span><span>${addressText}</span><a href="${mapUrl}" target="_blank" rel="noopener" class="detail-map-btn">地図で見る</a></div>`
-        : `<div class="detail-row"><span class="label">${ICON_PIN}</span><span>${addressText}</span></div>`;
+    const addressRowHtml = `<div class="detail-row"><span class="label">${ICON_PIN}</span><span>${addressText}</span></div>`;
 
     const infoRows = [
         [ICON_CALENDAR, dateStr],
@@ -691,7 +706,7 @@ function showFestivalDetailByKey(key) {
 }
 
 // --- 📅 달력 로직 (축제 날짜 표시 + 클릭 시 목록) ---
-let currentDate = new Date(); // 항상 "오늘" 기준으로 시작 (예전엔 2026년 7월로 고정되어 있었음)
+let currentDate = new Date(); // 항상 "오늘" 기준으로 시작
 
 // 특정 날짜에 "진행 중인" 축제 전부 반환 (하루짜리든 여러날짜든 다 포함)
 // ⚠️ API 쪽 데이터 품질 문제로 가끔 "연중 상시"(1년 내내) 같은 이상한 기간이 들어올 때가 있어서,
@@ -795,9 +810,6 @@ function renderEventOverlayBars(year, month, lastDay) {
     }).filter(Boolean);
 
     // 겹치는 축제끼리 서로 다른 "레인(세로 줄)"에 배정 (구글 캘린더식 interval scheduling)
-    // ⚠️ 반드시 날짜순으로 처리해야 함 - 북마크를 먼저 배정하려고 순서를 바꾸면
-    // "늦게 시작하는 북마크 축제"가 앞쪽 날짜들의 레인까지 잘못 차지한 것처럼 계산되는 버그가 생김.
-    // 그래서 북마크 우선순위는 여기서 강제하지 않고, "★+N件" 힌트 + "북마크만 보기" 토글로 대신함.
     items.sort((a, b) => a.clipStart - b.clipStart || (b.clipEnd - b.clipStart) - (a.clipEnd - a.clipStart));
     const laneEndDates = [];
     items.forEach(it => {
@@ -808,7 +820,6 @@ function renderEventOverlayBars(year, month, lastDay) {
     });
 
     // 레인이 너무 많아지는 날은 막대 대신 "+N"으로만 표시
-    // 북마크 숨은 개수랑 나머지 숨은 개수를 따로 세서, "★+N件"이 둘을 헷갈리게 섞지 않게 함
     const overflowBookmarkCountByDay = {};
     const overflowOtherCountByDay = {};
     const segments = [];
@@ -894,7 +905,6 @@ function renderEventOverlayBars(year, month, lastDay) {
         const bmCount = overflowBookmarkCountByDay[day] || 0;
         const otherCount = overflowOtherCountByDay[day] || 0;
 
-        // 북마크 숨은 개수(★N)랑 나머지 숨은 개수(+N)를 명확히 구분해서 표시
         let label = '';
         if (bmCount > 0 && otherCount > 0) label = `★${bmCount} +${otherCount}`;
         else if (bmCount > 0) label = `★${bmCount}件`;
@@ -927,7 +937,6 @@ function showDayDetail(dateKey) {
     const m = dateKey.match(/(\d{4})-(\d{2})-(\d{2})/);
     const day = +m[3];
 
-    // 클릭한 날짜 칸에 선택 표시(테두리) - 어느 날짜를 봤는지 한눈에 보이게
     document.querySelectorAll('.calendar-cell.selected').forEach(c => c.classList.remove('selected'));
     const cell = document.querySelector(`.calendar-cell[data-day="${day}"]`);
     if (cell) cell.classList.add('selected');
@@ -942,7 +951,6 @@ function showDayDetail(dateKey) {
         <div style="font-weight:700; margin-bottom:8px;">${dateKey} のイベント</div>
         ${events.map(f => `<div class="day-detail-item" onclick="showFestivalDetailByKey('${f.key}')">${bookmarkedKeys.has(f.key) ? ICON_STAR : ''}${f.title}</div>`).join('')}
     `;
-    // 리스트가 화면 아래로 잘려서 스크롤해야만 보이는 문제 방지 - 자동으로 스크롤해서 보여줌
     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 

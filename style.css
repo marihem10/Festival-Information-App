@@ -35,6 +35,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    cursor: pointer;
 }
 
 .logo-icon {
@@ -453,9 +454,9 @@ header h1 {
 }
 
 .detail-row {
-    display: grid;
-    grid-template-columns: 22px 1fr;
-    align-items: start;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     font-size: 15px;
     color: #333;
@@ -464,11 +465,16 @@ header h1 {
 }
 
 .detail-row .label {
+    flex-shrink: 0;
     width: 22px;
 }
 
-.detail-row > span:not(.label) {
+/* 아이콘(●) 바로 뒤에 오는 텍스트 - min-width:0이 없으면 텍스트가 길 때
+   flexbox가 이 칸 전체를 아이콘 옆이 아니라 다음 줄로 통째로 넘겨버려서,
+   "● " 만 혼자 있고 그 아래 줄에 텍스트가 시작되는 것처럼 보이는 문제가 생김 */
+.detail-row .label + span {
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .detail-map-btn {
@@ -487,6 +493,27 @@ header h1 {
 }
 .detail-map-btn:hover {
     background: rgba(0, 122, 255, 0.2);
+}
+
+/* 👉 길찾기(경로안내) 버튼 - 네이버지도 앱(nmap://)을 여는 방식이라 앱이 있는 폰에서만
+   작동함. 데스크톱엔 네이버지도 앱이 없어서, 기본적으로는 숨겨두고 모바일 화면(아래
+   @media 구간)에서만 보이게 함. */
+.detail-route-btn {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(52, 199, 89, 0.12);
+    color: #248a3d;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.detail-route-btn:hover {
+    background: rgba(52, 199, 89, 0.2);
 }
 
 .detail-summary {
@@ -604,6 +631,7 @@ header h1 {
     margin-bottom: 16px;
     display: flex;
     justify-content: flex-end;
+    padding-right: 18px;
 }
 
 #pagination-controls {
@@ -662,6 +690,20 @@ header h1 {
     margin-bottom: 14px;
 }
 
+/* 카테고리 필터랑 開催中/開催予定 버튼을 한 줄에 - 왼쪽엔 카테고리, 오른쪽 끝엔 상태버튼 */
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding-right: 18px;
+}
+.filter-row .tag-filter-wrap {
+    margin-bottom: 0;
+}
+
 .tag-chip {
     padding: 6px 14px;
     border-radius: 20px;
@@ -681,6 +723,18 @@ header h1 {
     background: var(--primary-blue);
     color: white;
     border-color: var(--primary-blue);
+}
+
+/* 開催中/開催予定 토글 버튼 - 카드에 뜨는 .status-badge 색이랑 통일 */
+.status-filter-ongoing.active {
+    background: #ff9500;
+    color: white;
+    border-color: #ff9500;
+}
+.status-filter-upcoming.active {
+    background: #34c759;
+    color: white;
+    border-color: #34c759;
 }
 
 /* --- 북마크 --- */
@@ -958,4 +1012,259 @@ header h1 {
 @keyframes splashPulse {
     0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
     40% { opacity: 1; transform: scale(1); }
+}
+
+/* ============================================================
+   📱 모바일(PWA) 대응 - 768px 이하일 때만 적용
+   데스크톱 스타일은 위에 그대로 두고, 여기서 필요한 부분만 덮어씀
+   ============================================================ */
+
+/* 모바일 상단바 - 데스크톱에선 항상 숨김 */
+#mobile-topbar {
+    display: none;
+}
+
+#sidebar-backdrop {
+    display: none;
+}
+
+@media (max-width: 768px) {
+
+    body {
+        display: block;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    /* --- 상단바 (로고 + 햄버거 버튼) --- */
+    #mobile-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    #mobile-topbar .logo {
+        margin: 0;
+        padding-left: 0;
+        font-size: 18px;
+    }
+    #mobile-menu-toggle {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.55);
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+    #mobile-menu-toggle:active {
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    /* --- 사이드바를 화면 왼쪽에서 슬라이드되는 오버레이 서랍으로 --- */
+    #sidebar,
+    #sidebar.collapsed {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 78vw;
+        max-width: 300px;
+        padding: 30px 20px;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 50;
+        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.15);
+    }
+    #sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    /* 모바일 서랍에서는 데스크톱의 "접힌 아이콘만" 상태를 무시하고 항상 글자까지 다 보여줌 */
+    #sidebar.collapsed .logo-text,
+    #sidebar.collapsed .menu-text {
+        display: inline;
+    }
+    #sidebar.collapsed .sidebar-top {
+        justify-content: space-between;
+        padding-left: 15px;
+    }
+    #sidebar.collapsed .menu li {
+        justify-content: flex-start;
+        padding: 14px 20px;
+    }
+    /* 데스크톱 전용 접기 버튼은 모바일에선 필요 없음(햄버거가 그 역할을 대신함) */
+    #sidebar-toggle {
+        display: none;
+    }
+
+    #sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 40;
+    }
+    #sidebar-backdrop.show {
+        display: block;
+    }
+
+    /* --- 메인 콘텐츠: 고정 높이/숨김스크롤 대신 자연스러운 페이지 스크롤로 --- */
+    #content {
+        padding: 16px;
+        height: auto;
+        min-height: auto;
+        overflow: visible;
+    }
+    .view-section {
+        height: auto;
+        overflow: visible;
+        padding-right: 0;
+    }
+    #view-home.view-section,
+    #view-bookmarks.view-section {
+        overflow: visible;
+        min-height: auto;
+    }
+    #festival-grid-wrap,
+    #bookmark-grid-wrap {
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    header h1 {
+        font-size: 24px;
+        margin-bottom: 18px;
+    }
+
+    /* --- 카드 그리드: 3열 → 1열 --- */
+    #festival-grid,
+    #bookmark-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    /* 모바일은 세로 스크롤이 자연스러워서, 데스크톱처럼 "화면에 딱 맞추는" 계산 대신 고정 높이 사용 */
+    .card-thumb {
+        height: 190px !important;
+        width: calc(100% + 32px);
+        /* contain이면 세로로 긴 포스터 이미지가 작게 뜨고 옆에 빈 여백이 남아서 어색했음
+           → cover로 꽉 채우고, 보통 제목 글자가 위쪽에 있는 포스터가 많아서 위쪽 기준으로 자름 */
+        object-fit: cover;
+        object-position: center top;
+    }
+
+    /* --- 카드 디테일 다듬기 --- */
+    .card {
+        box-shadow: 0 6px 20px rgba(31, 38, 135, 0.10);
+    }
+    .card:hover {
+        /* 터치 화면은 탭한 뒤에도 :hover 상태가 계속 남아있는 경우가 있어서 무효화 */
+        transform: none;
+        background: rgba(255, 255, 255, 0.45);
+    }
+    .card:active {
+        /* 데스크톱의 마우스오버 대신, 눌렀을 때 살짝 눌리는 피드백 */
+        transform: scale(0.98);
+        background: rgba(255, 255, 255, 0.65);
+    }
+    .status-badge {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+    .bookmark-btn {
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+    }
+
+    .search-input-wrap {
+        max-width: 100%;
+    }
+
+    /* --- 터치 영역 확대 --- */
+    .menu li {
+        padding: 16px 20px;
+        font-size: 16px;
+    }
+    .tag-chip {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    .cal-filter-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    .bookmark-btn {
+        width: 34px;
+        height: 34px;
+    }
+    #pagination-controls button,
+    #bookmark-pagination-controls button {
+        padding: 10px 18px !important;
+        font-size: 14px !important;
+    }
+
+    /* --- 캘린더: 7칸 유지하되 셀/글씨 크기를 폰 화면에 맞게 축소 --- */
+    .calendar-header {
+        padding: 10px 14px;
+    }
+    #calendar-month-year {
+        font-size: 16px !important;
+    }
+    .calendar-grid {
+        gap: 4px;
+    }
+    .calendar-day-name {
+        padding: 6px 0;
+        font-size: 12px;
+    }
+    .calendar-cell {
+        min-height: 70px;
+        padding: 6px;
+        border-radius: 8px;
+    }
+    .calendar-date {
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+    .calendar-event-bar {
+        font-size: 8px;
+        height: 13px;
+        line-height: 13px;
+        padding: 0 3px;
+    }
+    .calendar-event-more {
+        font-size: 8px;
+    }
+    .calendar-filter-toggle {
+        flex-wrap: wrap;
+    }
+
+    /* --- 마우스오버 툴팁 → 탭 방식 --- */
+    .calendar-info-tooltip {
+        width: 220px;
+    }
+    .calendar-info-tooltip.show {
+        display: block;
+    }
+
+    /* --- 상세 화면은 이미 800px 기준 반응형이 잡혀있어서 자연스럽게 세로로 쌓임 --- */
+    .detail-card {
+        padding: 20px 18px;
+    }
+    .detail-card h2 {
+        font-size: 21px;
+    }
+
+    /* --- 길찾기 버튼: 모바일에서만 보이게 함 --- */
+    .detail-route-btn {
+        display: inline-flex;
+    }
 }
